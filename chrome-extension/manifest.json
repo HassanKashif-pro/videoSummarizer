@@ -6,12 +6,13 @@
         "32": "/icons/SUMMIFY.png"
     },
     "background": {
-        "service_worker": "/dist/service-worker.js",
+        "service_worker": "service-worker.js",
         "type": "module"
     },
     "action": {
         "default_icon": "/icons/SUMMIFY.png",
-        "default_title": "Summify Video Summarizer"
+        "default_title": "Summify Video Summarizer",
+        "default_popup": "popup.html"
     },
     "permissions": [
         "scripting",
