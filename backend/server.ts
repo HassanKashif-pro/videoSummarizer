@@ -11,12 +11,17 @@ app.use(express.json());
 
 console.log("🚀 Server is starting...");
 
+// ✅ Start the server properly
+app.listen(PORT, () => {
+  console.log(`✅ Server is running on port ${PORT}`);
+});
+
+// ✅ Fix TypeScript-like typings in JavaScript
 app.get("/", (req: any, res: { send: (arg0: string) => void }) => {
   console.log("📢 Root route hit: GET /");
   res.send("YouTube Summarizer API is running...");
 });
 
-// Route to fetch video transcript
 app.get(
   "/transcript/:videoId",
   async (
