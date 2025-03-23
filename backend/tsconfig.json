@@ -7,6 +7,9 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["**/*.ts"],
+  "include": [
+    "**/*.ts",
+    "youtube-transcript-api.d.ts"  // Add this line to include your custom declaration file
+  ],
   "exclude": ["node_modules"]
 }

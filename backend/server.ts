@@ -1,10 +1,8 @@
-import { getTranscript } from "youtube-transcript-api";
-
+const { getTranscript } = require("youtube-transcript-api");
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
