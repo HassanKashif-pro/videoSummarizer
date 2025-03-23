@@ -1,8 +1,9 @@
+import { getTranscript } from "youtube-transcript-api";
+
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-const { getTranscript } = require("youtube-transcript-api");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -94,7 +95,9 @@ app.post(
       json: (arg0: { summary: string }) => void;
     }
   ) => {
-    const { transcript } = req.body;
+    const transcript =
+      req.body.transcript ||
+      "This is a dummy transcript for testing OpenAI summarization.";
 
     console.log(
       `📥 Received request to summarize transcript: ${
