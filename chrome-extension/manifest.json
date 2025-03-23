@@ -9,10 +9,18 @@
         "service_worker": "service-worker.js",
         "type": "module"
     },
+    "content_scripts": [
+    {
+    "matches": ["*://www.youtube.com/*"],
+    "js": ["content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+    }
+    ],
     "action": {
-        "default_icon": "/icons/SUMMIFY.png",
-        "default_title": "Summify Video Summarizer",
-        "default_popup": "popup.html"
+    "default_icon": "/icons/SUMMIFY.png",
+    "default_title": "Summify Video Summarizer",
+    "default_popup": "popup.html"
     },
     "permissions": [
         "scripting",
@@ -20,6 +28,7 @@
     ],
     "host_permissions": [
         "http://*/*",
-        "https://*/*"
+        "https://*/*",
+        "https://www.youtube.com/*"
     ]
 }

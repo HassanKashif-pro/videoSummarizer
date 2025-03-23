@@ -1,0 +1,10 @@
+#html5-video-player {
+  display: flex;
+  position: relative;
+}
+
+#summify-watermark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}

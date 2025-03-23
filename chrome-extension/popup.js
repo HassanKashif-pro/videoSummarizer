@@ -1,31 +1,40 @@
 "use strict";
-// Get current tab URL
+// Ensure script runs only when Chrome extension loads
 chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-  const url = tabs[0]?.url; // Ensure we have a valid URL
-  // Ensure it's a YouTube video
-  if (!url || !url.includes("youtube.com/watch")) {
-    const summaryElement = document.getElementById("summary");
-    if (summaryElement) {
-      summaryElement.innerText = "Open a YouTube video first.";
+    if (!tabs || tabs.length === 0) {
+        console.error("No active tab found.");
+        return;
     }
-    return;
-  }
-  // Send request to your backend
-  try {
-    const response = await fetch("http://127.0.0.1:5000/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoUrl: url }),
-    });
-    const data = await response.json();
-    const summaryElement = document.getElementById("summary");
-    if (summaryElement) {
-      summaryElement.innerText = data.summary || "Error fetching summary.";
+    const url = tabs[0]?.url; // Get URL from active tab
+    // Validate it's a YouTube video URL
+    if (!url || !url.includes("youtube.com/watch")) {
+        updateSummaryText("Open a YouTube video first.");
+        return;
     }
-  } catch (error) {
-    const summaryElement = document.getElementById("summary");
-    if (summaryElement) {
-      summaryElement.innerText = "Failed to fetch summary.";
+    try {
+        const response = await fetch("http://localhost:5000/summarize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ videoUrl: url }),
+        });
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        updateSummaryText(data.summary || "No summary available.");
     }
-  }
+    catch (error) {
+        console.error("Fetch error:", error);
+        updateSummaryText("Failed to fetch summary.");
+    }
 });
+// Helper function to update UI safely
+function updateSummaryText(message) {
+    const summaryElement = document.getElementById("summary");
+    if (summaryElement) {
+        summaryElement.innerText = message;
+    }
+    else {
+        console.error("Summary element not found.");
+    }
+}
