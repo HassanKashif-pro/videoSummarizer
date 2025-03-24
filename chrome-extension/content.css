@@ -1,10 +1,48 @@
-#html5-video-player {
-  display: flex;
-  position: relative;
+#summify-watermark {
+  position: absolute !important;
+  top: 5px !important;
+  right: 5px !important;
+  width: 28px !important;
+  height: 25px !important;
+  background: #f61818 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  z-index: 99999 !important;
+  transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
+  overflow: hidden;
+  white-space: nowrap;
+  gap: 26px; /* Reduce spacing between logo & text */
+  padding-left: 9px;
 }
 
-#summify-watermark {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+#summify-watermark:hover {
+  width: 160px !important;
+}
+
+/* ✅ Ensure text is not adding extra space */
+#summify-watermark span {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  color: white;
+  font-size: 13px;
+  white-space: nowrap;
+  justify-content: center;
+  margin-right: 0; /* Remove any possible extra margin */
+}
+
+/* ✅ Reveal text properly */
+#summify-watermark:hover span {
+  opacity: 1;
+}
+
+/* ✅ Keep Logo Fixed */
+#summify-watermark img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  transition: transform 0.3s ease-in-out;
+  flex-shrink: 0; /* Prevents logo from stretching */
 }

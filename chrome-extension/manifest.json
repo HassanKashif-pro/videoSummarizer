@@ -30,5 +30,11 @@
         "http://*/*",
         "https://*/*",
         "https://www.youtube.com/*"
-    ]
+    ],
+    "web_accessible_resources": [
+    {
+      "resources": ["icons/image.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
