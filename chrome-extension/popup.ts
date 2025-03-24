@@ -1,19 +1,22 @@
-// Ensure script runs only when Chrome extension loads
-chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-  if (!tabs || tabs.length === 0) {
-    console.error("No active tab found.");
-    return;
-  }
-
-  const url = tabs[0]?.url; // Get URL from active tab
-
-  // Validate it's a YouTube video URL
-  if (!url || !url.includes("youtube.com/watch")) {
-    updateSummaryText("Open a YouTube video first.");
-    return;
-  }
-
+// Function to fetch and update video summary
+async function fetchVideoSummary() {
   try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tabs || tabs.length === 0 || !tabs[0].url) {
+      updateSummaryText("No active tab found.");
+      return;
+    }
+
+    const url: string = tabs[0].url; // Extract URL from active tab
+
+    // Validate it's a YouTube video URL
+    if (!url.includes("youtube.com/watch")) {
+      updateSummaryText("Open a YouTube video first.");
+      return;
+    }
+
+    // Send request to the backend server
     const response = await fetch("http://localhost:5000/summarize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,14 +33,25 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     console.error("Fetch error:", error);
     updateSummaryText("Failed to fetch summary.");
   }
-});
+}
 
 // Helper function to update UI safely
 function updateSummaryText(message: string) {
   const summaryElement = document.getElementById("summary");
   if (summaryElement) {
-    summaryElement.innerText = message;
+    summaryElement.textContent = message;
   } else {
     console.error("Summary element not found.");
   }
 }
+document.addEventListener("DOMContentLoaded", () => {
+  const closeBtn = document.getElementById("closeBtn");
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      window.close(); // Closes the popup
+    });
+  }
+});
+// Run the function when the popup loads
+document.addEventListener("DOMContentLoaded", fetchVideoSummary);

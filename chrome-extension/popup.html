@@ -7,13 +7,26 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h2>Summify</h2>
-    <p>Generate a summary for any YouTube video.</p>
-    
-    <button id="summarizeBtn">Summarize Video</button>
-    <div id="summary"></div>
+    <div class="popup-container">
+        <!-- Header -->
+        <div class="header">
+            <img src="icons/SUMMIFY.png" alt="Summify Logo" class="logo">
+            <button id="summarizeBtn" class="btn">Summarize Video</button>
+            <button id="closeBtn" class="btn" style="position: absolute; right: 20px;">X</button>
+
+        </div>
+        <!-- Notes Section -->
+        <div class="notes-container">
+            <textarea id="notes" placeholder="Add a note..."></textarea>
+        </div>
+
+        <!-- Actions (Screenshot + Save Note) -->
+        <div class="actions">
+            <button id="screenshotBtn" class="btn">📷 Capture Screenshot</button>
+            <button id="saveNoteBtn" class="btn">💾 Save Note</button>
+        </div>
+    </div>
 
     <script src="popup.js"></script>
-
 </body>
 </html>
