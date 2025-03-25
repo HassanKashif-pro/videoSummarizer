@@ -46,3 +46,37 @@
   transition: transform 0.3s ease-in-out;
   flex-shrink: 0; /* Prevents logo from stretching */
 }
+#my-floating-ui {
+  position: fixed;
+  top: 100px;
+  left: 100px;
+  width: 300px;
+  background: white;
+  border: 1px solid black;
+  border-radius: 8px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  font-family: Arial, sans-serif;
+}
+
+#floating-header {
+  background: #007bff;
+  color: white;
+  padding: 8px;
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+#close-ui {
+  background: red;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+#your-watermark-id {
+  z-index: 10000 !important;
+}
