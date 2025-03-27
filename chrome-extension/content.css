@@ -46,37 +46,118 @@
   transition: transform 0.3s ease-in-out;
   flex-shrink: 0; /* Prevents logo from stretching */
 }
-#my-floating-ui {
+.floating_ui {
   position: fixed;
   top: 100px;
   left: 100px;
-  width: 300px;
-  background: white;
-  border: 1px solid black;
+  width: 350px;
+  background: #f0f0f0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 9999;
+  z-index: 10000;
   font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
-#floating-header {
-  background: #007bff;
-  color: white;
-  padding: 8px;
-  cursor: move;
+.header_bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #e0e0e0;
+  padding: 5px 10px;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
+  cursor: move;
 }
 
-#close-ui {
-  background: red;
-  color: white;
-  border: none;
+.logo {
+  width: 30px; /* Adjust based on your logo size */
+  height: 30px;
+}
+
+.menu_icons {
+  display: flex;
+  align-items: center;
+}
+
+.menu_icons .icon {
+  margin-left: 10px;
+  cursor: pointer;
+  color: #333;
+  font-size: 16px;
+}
+
+.menu_icons .close {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.menu_icons .icon:hover {
+  color: #000;
+}
+
+.content_area {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  flex: 1; /* Allows content area to take available space */
+}
+
+.left_column {
+  display: flex;
+  flex-direction: column;
+  margin-right: 15px;
+}
+
+.left_column .icon {
+  margin-bottom: 10px;
+  font-size: 20px;
+  color: #666;
   cursor: pointer;
 }
-#your-watermark-id {
-  z-index: 10000 !important;
+
+.left_column .icon:hover {
+  color: #333;
+}
+
+.text_input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+}
+
+.text_input::placeholder {
+  color: #999;
+}
+
+.text_input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px;
+  background: #e0e0e0;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.close_button {
+  padding: 5px 15px;
+  background: #d9534f; /* Red color for close button */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.close_button:hover {
+  background: #c9302c;
 }

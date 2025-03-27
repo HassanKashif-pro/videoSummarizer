@@ -19,8 +19,7 @@
     ],
     "action": {
     "default_icon": "/icons/SUMMIFY.png",
-    "default_title": "Summify Video Summarizer",
-    "default_popup": "popup.html"
+    "default_title": "Summify Video Summarizer"
     },
     "permissions": [
         "scripting",
