@@ -1,3 +1,4 @@
+/* Existing styles for #summify-watermark remain unchanged */
 #summify-watermark {
   position: absolute !important;
   top: 5px !important;
@@ -14,7 +15,7 @@
   transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
   overflow: hidden;
   white-space: nowrap;
-  gap: 26px; /* Reduce spacing between logo & text */
+  gap: 26px;
   padding-left: 9px;
 }
 
@@ -22,7 +23,6 @@
   width: 160px !important;
 }
 
-/* ✅ Ensure text is not adding extra space */
 #summify-watermark span {
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
@@ -30,134 +30,203 @@
   font-size: 13px;
   white-space: nowrap;
   justify-content: center;
-  margin-right: 0; /* Remove any possible extra margin */
+  margin-right: 0;
 }
 
-/* ✅ Reveal text properly */
 #summify-watermark:hover span {
   opacity: 1;
 }
 
-/* ✅ Keep Logo Fixed */
 #summify-watermark img {
   width: 20px;
   height: 20px;
   object-fit: contain;
   transition: transform 0.3s ease-in-out;
-  flex-shrink: 0; /* Prevents logo from stretching */
+  flex-shrink: 0;
 }
-.floating_ui {
-  position: fixed;
-  top: 100px;
-  left: 100px;
-  width: 350px;
-  background: #f0f0f0;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  z-index: 10000;
-  font-family: Arial, sans-serif;
+
+/* New styles for the UI logo */
+#ui-logo {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 28px; /* Initial width (just the logo) */
+  height: 25px;
+  background: #f61818; /* Same background as summify-watermark */
+  border-radius: 6px;
+  cursor: pointer;
+  transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
+  overflow: hidden;
+  white-space: nowrap;
+  gap: 8px; /* Smaller gap between logo and text */
+  padding-left: 4px; /* Adjusted padding for smaller size */
+}
+
+#ui-logo:hover {
+  width: 100px; /* Expand to show text on hover */
+}
+
+#ui-logo .logo {
+  width: 20px;
+  height: 20px;
+  justify-content: center;
+  align-items: center;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+#ui-logo .logo-text {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  color: white;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+#ui-logo:hover .logo-text {
+  opacity: 1;
+  width: 40px;
+}
+/* HERE IS THE FLOATING DESIGNS */
+
+.floating_ui {
+  position: absolute;
+  z-index: 1000;
+  width: 300px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background: #fff;
 }
 
 .header_bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #e0e0e0;
-  padding: 5px 10px;
+  padding: 8px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
   cursor: move;
+  height: 38px;
+  box-sizing: border-box;
+  position: relative;
 }
 
 .logo {
-  width: 30px; /* Adjust based on your logo size */
-  height: 30px;
+  height: 26px;
+  border-radius: 5px;
 }
 
-.menu_icons {
+.menu_icons_right {
   display: flex;
   align-items: center;
 }
 
-.menu_icons .icon {
-  margin-left: 10px;
-  cursor: pointer;
-  color: #333;
-  font-size: 16px;
-}
-
-.menu_icons .close {
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.menu_icons .icon:hover {
-  color: #000;
-}
-
-.content_area {
+.main_body {
+  background: #fff;
+  padding: 5px;
+  height: 37px;
+  max-height: 300px;
+  overflow-y: auto;
   display: flex;
+  justify-content: center;
   align-items: center;
-  padding: 15px;
-  flex: 1; /* Allows content area to take available space */
-}
-
-.left_column {
-  display: flex;
-  flex-direction: column;
-  margin-right: 15px;
-}
-
-.left_column .icon {
-  margin-bottom: 10px;
-  font-size: 20px;
-  color: #666;
-  cursor: pointer;
-}
-
-.left_column .icon:hover {
-  color: #333;
-}
-
-.text_input {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #333;
-}
-
-.text_input::placeholder {
-  color: #999;
-}
-
-.text_input:focus {
-  outline: none;
-  border-color: #666;
 }
 
 .footer {
-  display: flex;
-  justify-content: flex-end;
+  background: #fff;
   padding: 10px;
-  background: #e0e0e0;
+  border-top: 1px solid #eee;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
 }
 
-.close_button {
-  padding: 5px 15px;
-  background: #d9534f; /* Red color for close button */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
+.form_container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
 }
 
-.close_button:hover {
-  background: #c9302c;
+.icon {
+  font-size: 24px; /* Increased size of all icons */
+  color: #666;
+  cursor: pointer;
+  border: 1px solid #ccc; /* Added border */
+  border-radius: 4px; /* Rounded border */
+  padding: 2px; /* Padding to make the border visible around the icon */
+}
+
+/* Specific adjustments for each icon if needed */
+/* For camera and pin icons */
+.material-symbols-outlined.icon.camera,
+.material-symbols-outlined.icon.pin {
+  font-size: 20px;
+  color: #666;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24; /* Decreased weight to 300 */
+}
+.material-symbols-outlined.icon.close {
+  font-size: 18px;
+  color: #666;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24; /* Decreased weight to 300 */
+}
+
+.icon.menu {
+  font-size: 24px; /* Keep the menu icon size */
+}
+
+.icon.close {
+  font-size: 22px; /* Slightly smaller for close icon */
+}
+.menu_options {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center icons inside */
+  margin-left: auto; /* Pushes the menu to the right */
+  font-size: 16px;
+  color: #666;
+  border: none;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24; /* Decreased weight to 300 */
+}
+.input-wrapper {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* Input icon/logo */
+.input-icon {
+  position: absolute;
+  left: 8px;
+  bottom: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px; /* Smaller logo/icon size */
+  height: 10px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Text input */
+.text_input {
+  width: 100%;
+  height: 24px; /* Reduced height to match smaller icons */
+  padding: 4px 8px 4px 28px; /* Adjusted padding for smaller icon */
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 12px; /* Smaller font size for the placeholder text */
+  background: transparent;
+  box-sizing: border-box;
 }
