@@ -91,7 +91,7 @@
 
 .floating_ui {
   position: absolute;
-  z-index: 1000;
+  z-index: 1000000000000000000000000000000000 !important;
   width: 300px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
