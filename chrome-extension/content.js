@@ -46,6 +46,11 @@ function createFloatingUI() {
     // Header bar
     const headerBar = document.createElement("div");
     headerBar.className = "header_bar";
+    // Create a clickable link container
+    const logoLink = document.createElement("a");
+    logoLink.href = "https://localhost:5000"; // Set the website URL
+    logoLink.target = "_blank"; // Open in a new tab
+    logoLink.rel = "noopener noreferrer"; // Security best practice
     // Create a clickable container for the logo
     const logoButton = document.createElement("div");
     logoButton.id = "ui-logo"; // Use a different ID to avoid conflict with summify-watermark
@@ -62,8 +67,10 @@ function createFloatingUI() {
     // Append logo and text to the button
     logoButton.appendChild(logo);
     logoButton.appendChild(logoText);
-    // Append to headerBar
-    headerBar.appendChild(logoButton);
+    // Append logoButton inside the anchor link
+    logoLink.appendChild(logoButton);
+    // ✅ Append the link (which contains the button) to the header
+    headerBar.appendChild(logoLink);
     // Three-dots (more options) button
     const menuOptions = document.createElement("div");
     menuOptions.className = "menu_options";
@@ -81,9 +88,20 @@ function createFloatingUI() {
     });
     // Append header to floating div
     floatingDiv.appendChild(headerBar);
-    // Main content area
+    // Main content area// Create the main body
     const mainBody = document.createElement("div");
     mainBody.className = "main_body";
+    // Create a top row container
+    const topRow = document.createElement("div");
+    topRow.className = "top_row";
+    // Create the book icon
+    const magicIcon = document.createElement("span");
+    magicIcon.className = "material-symbols-outlined icon book_4_spark";
+    magicIcon.textContent = "book_4_spark";
+    // Append the icon to the top row
+    topRow.appendChild(magicIcon);
+    // Append the top row to the main body
+    mainBody.appendChild(topRow);
     // Append main body to floating div
     floatingDiv.appendChild(mainBody);
     // Footer

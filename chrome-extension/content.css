@@ -49,7 +49,7 @@
 #ui-logo {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex;
   width: 28px; /* Initial width (just the logo) */
   height: 25px;
   background: #f61818; /* Same background as summify-watermark */
@@ -108,13 +108,20 @@
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
   cursor: move;
-  height: 38px;
+  height: 34px;
   box-sizing: border-box;
   position: relative;
 }
 
+/* Ensure the link looks like a normal button */
+.header_bar a {
+  text-decoration: none; /* Removes underline */
+  color: inherit; /* Keeps text color the same */
+  display: inline-block; /* Ensures proper spacing */
+}
+
 .logo {
-  height: 26px;
+  height: 25px;
   border-radius: 5px;
 }
 
@@ -126,17 +133,34 @@
 .main_body {
   background: #fff;
   padding: 5px;
-  height: 37px;
+  min-height: 30px; /* Use min-height instead of fixed height */
   max-height: 300px;
   overflow-y: auto;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  width: 100%; /* Ensure it takes the full width of the parent */
+  box-sizing: border-box;
+}
+
+.top_row {
+  display: flex;
+  justify-content: flex-start; /* Align children to the left */
+  align-items: center; /* Vertically center the icons and input */
+  width: 100% !important;
+}
+
+.material-symbols-outlined.icon.book_4_spark {
+  font-size: 20px;
+  color: #666;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  padding-left: 5px;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
 .footer {
   background: #fff;
-  padding: 10px;
+  padding: 5px;
   border-top: 1px solid #eee;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
@@ -178,7 +202,6 @@
   padding: 2px;
   font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24; /* Decreased weight to 300 */
 }
-
 .icon.menu {
   font-size: 24px; /* Keep the menu icon size */
 }
@@ -207,26 +230,23 @@
 /* Input icon/logo */
 .input-icon {
   position: absolute;
-  left: 8px;
-  bottom: 2px;
+  left: 5px;
   top: 50%;
   transform: translateY(-50%);
-  width: 10px; /* Smaller logo/icon size */
-  height: 10px;
-  background-size: contain;
-  background-repeat: no-repeat;
-  opacity: 0.3;
+  font-size: 19px !important;
+  opacity: 0.8;
   pointer-events: none;
+  color: #666;
+  font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24;
 }
 
-/* Text input */
 .text_input {
   width: 100%;
-  height: 24px; /* Reduced height to match smaller icons */
-  padding: 4px 8px 4px 28px; /* Adjusted padding for smaller icon */
+  height: 24px;
+  padding: 4px 8px 4px 28px; /* Current padding to accommodate the icon */
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 12px; /* Smaller font size for the placeholder text */
+  font-size: 12px;
   background: transparent;
   box-sizing: border-box;
 }
