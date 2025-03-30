@@ -98,7 +98,8 @@ function createFloatingUI() {
 
   function addToMainBody(
     contentType: string,
-    content: string | ArrayBuffer | null | undefined
+    content: string | ArrayBuffer | null | undefined,
+    timestamp?: string
   ) {
     const contentDiv = document.createElement("div");
     contentDiv.className = "content-item";
@@ -149,6 +150,15 @@ function createFloatingUI() {
 
     contentDiv.appendChild(contentArea);
 
+    const timestampContainer = document.createElement("div"); // Container for timestamp and delete button
+    timestampContainer.className = "timestamp-container";
+
+    if (timestamp) {
+      const timestampDiv = document.createElement("div");
+      timestampDiv.className = "timestamp";
+      timestampDiv.textContent = `▷ ${timestamp}`; // Display timestamp
+      contentDiv.appendChild(timestampDiv);
+    }
     const deleteButton = document.createElement("span");
     deleteButton.className = "delete-button material-symbols-outlined";
     deleteButton.textContent = "delete";
@@ -156,6 +166,8 @@ function createFloatingUI() {
       contentDiv.remove();
     });
     contentDiv.appendChild(deleteButton);
+
+    contentDiv.appendChild(timestampContainer);
 
     // Insert contentDiv after topRow
     if (mainBody.firstChild) {
@@ -200,8 +212,11 @@ function createFloatingUI() {
   screenshotIcon.addEventListener("click", async () => {
     try {
       const dataUrl = await captureYouTubeFrame();
+      const currentTime = formatTime(
+        document.querySelector("video")?.currentTime || 0
+      );
       if (dataUrl) {
-        addToMainBody("image", dataUrl);
+        addToMainBody("image", dataUrl, currentTime);
         textEditor.focus();
       }
     } catch (err: unknown) {
@@ -221,7 +236,10 @@ function createFloatingUI() {
   pinIcon.addEventListener("click", () => {
     const url = prompt("Enter a URL to insert:");
     if (url) {
-      addToMainBody("link", url);
+      const currentTime = formatTime(
+        document.querySelector("video")?.currentTime || 0
+      );
+      addToMainBody("link", url, currentTime);
       textEditor.focus();
     }
   });
@@ -311,7 +329,10 @@ function createFloatingUI() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (textEditor.textContent?.trim() !== "") {
-        addToMainBody("text", textEditor.innerHTML);
+        const currentTime = formatTime(
+          document.querySelector("video")?.currentTime || 0
+        );
+        addToMainBody("text", textEditor.innerHTML, currentTime);
         textEditor.textContent = "";
         textEditor.style.color = "#999";
       }
@@ -368,6 +389,12 @@ function createFloatingUI() {
 
     ctx.drawImage(youtubeVideo, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL("image/png");
+  }
+
+  function formatTime(time: number): string {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   }
 
   makeDraggable(floatingDiv);
