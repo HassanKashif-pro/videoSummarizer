@@ -129,10 +129,31 @@ function createFloatingUI() {
         const timestampContainer = document.createElement("div"); // Container for timestamp and delete button
         timestampContainer.className = "timestamp-container";
         if (timestamp) {
-            const timestampDiv = document.createElement("div");
-            timestampDiv.className = "timestamp";
-            timestampDiv.textContent = `▷ ${timestamp}`; // Display timestamp
-            contentDiv.appendChild(timestampDiv);
+            const timestampButton = document.createElement("button"); // Use button element
+            timestampButton.className = "timestamp clickable-timestamp"; // Add classes
+            const playIcon = document.createElement("span");
+            playIcon.className = "material-symbols-outlined";
+            playIcon.textContent = "play_arrow";
+            const timestampText = document.createElement("span");
+            timestampText.textContent = timestamp;
+            timestampButton.appendChild(playIcon);
+            timestampButton.appendChild(timestampText);
+            // Add click event listener
+            timestampButton.addEventListener("click", () => {
+                const video = document.querySelector("video"); // Replace with your video element selector
+                if (video) {
+                    const timeInSeconds = parseTimestamp(timestamp); // Convert timestamp to seconds
+                    video.currentTime = timeInSeconds;
+                }
+            });
+            contentDiv.appendChild(timestampButton);
+        }
+        // Function to parse timestamp string to seconds
+        function parseTimestamp(timestampString) {
+            const parts = timestampString.split(":");
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseInt(parts[1], 10);
+            return minutes * 60 + seconds;
         }
         const deleteButton = document.createElement("span");
         deleteButton.className = "delete-button material-symbols-outlined";
