@@ -33,20 +33,16 @@ function createFloatingUI() {
     const existingUI = document.getElementById("floating_ui");
     if (existingUI)
         existingUI.remove();
-    // Create the floating UI container
     const floatingDiv = document.createElement("div");
     floatingDiv.id = "floating_ui";
     floatingDiv.className = "floating_ui";
-    // Set initial position
     floatingDiv.style.top = "20px";
     floatingDiv.style.right = "20px";
     floatingDiv.style.left = "auto";
     floatingDiv.style.bottom = "auto";
-    floatingDiv.style.height = "auto"; // Changed from fixed height to auto
-    // Header bar
+    floatingDiv.style.height = "auto";
     const headerBar = document.createElement("div");
     headerBar.className = "header_bar";
-    // Create a clickable link container
     const logoLink = document.createElement("a");
     logoLink.href = "https://localhost:5000";
     logoLink.target = "_blank";
@@ -65,18 +61,15 @@ function createFloatingUI() {
     logoButton.appendChild(logoText);
     logoLink.appendChild(logoButton);
     headerBar.appendChild(logoLink);
-    // Menu options
     const menuOptions = document.createElement("div");
     menuOptions.className = "menu_options";
     menuOptions.innerHTML = `<span class="material-symbols-outlined icon more" style="border: none">more_vert</span>`;
     headerBar.appendChild(menuOptions);
-    // Close icon
     const menuIconsRight = document.createElement("div");
     menuIconsRight.className = "menu_icons_right";
     menuIconsRight.innerHTML = `<span class="material-symbols-outlined icon close">close</span>`;
     headerBar.appendChild(menuIconsRight);
     floatingDiv.appendChild(headerBar);
-    // Main content area
     const mainBody = document.createElement("div");
     mainBody.className = "main_body";
     const topRow = document.createElement("div");
@@ -87,7 +80,6 @@ function createFloatingUI() {
     topRow.appendChild(magicIcon);
     mainBody.appendChild(topRow);
     floatingDiv.appendChild(mainBody);
-    // Function to add content to main body
     function addToMainBody(contentType, content) {
         const contentDiv = document.createElement("div");
         contentDiv.className = "content-item";
@@ -101,14 +93,12 @@ function createFloatingUI() {
                     if (contentArea.contentEditable === "false") {
                         contentArea.contentEditable = "true";
                         contentArea.focus();
-                        // Add event listeners to prevent background effects
                         contentArea.addEventListener("keydown", stopPropagation);
                         contentArea.addEventListener("keypress", stopPropagation);
                     }
                 });
                 contentArea.addEventListener("blur", () => {
                     contentArea.contentEditable = "false";
-                    // Remove event listeners when editing is done
                     contentArea.removeEventListener("keydown", stopPropagation);
                     contentArea.removeEventListener("keypress", stopPropagation);
                 });
@@ -136,7 +126,6 @@ function createFloatingUI() {
                 break;
         }
         contentDiv.appendChild(contentArea);
-        // Delete button
         const deleteButton = document.createElement("span");
         deleteButton.className = "delete-button material-symbols-outlined";
         deleteButton.textContent = "delete";
@@ -144,8 +133,14 @@ function createFloatingUI() {
             contentDiv.remove();
         });
         contentDiv.appendChild(deleteButton);
+        // Insert contentDiv after topRow
         if (mainBody.firstChild) {
-            mainBody.insertBefore(contentDiv, mainBody.firstChild.nextSibling);
+            if (mainBody.firstChild.nextSibling) {
+                mainBody.insertBefore(contentDiv, mainBody.firstChild.nextSibling);
+            }
+            else {
+                mainBody.appendChild(contentDiv);
+            }
         }
         else {
             mainBody.appendChild(contentDiv);
@@ -154,44 +149,40 @@ function createFloatingUI() {
     function stopPropagation(event) {
         event.stopPropagation();
     }
-    // Footer
     const footer = document.createElement("div");
     footer.className = "footer";
     footer.addEventListener("click", (e) => {
         const target = e.target;
-        if (target?.classList.contains("icon") ||
-            target?.tagName === "BUTTON" ||
-            target?.closest(".formatting_toolbar")) {
+        if (target instanceof Element &&
+            (target.classList.contains("icon") ||
+                target.tagName === "BUTTON" ||
+                target.closest(".formatting_toolbar"))) {
             return;
         }
         textEditor.focus();
     });
     const formContainer = document.createElement("div");
     formContainer.className = "form_container";
-    // Camera icon
-    const cameraIcon = document.createElement("span");
-    cameraIcon.className = "material-symbols-outlined icon camera";
-    cameraIcon.textContent = "photo_camera";
-    cameraIcon.addEventListener("click", () => {
-        const fileInput = document.createElement("input");
-        fileInput.type = "file";
-        fileInput.accept = "image/*";
-        fileInput.onchange = (e) => {
-            const input = e.target;
-            const file = input.files?.[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const imageUrl = event.target.result;
-                    addToMainBody("image", imageUrl);
-                    textEditor.focus();
-                };
-                reader.readAsDataURL(file);
+    // Screenshot icon
+    const screenshotIcon = document.createElement("span");
+    screenshotIcon.className = "material-symbols-outlined icon camera";
+    screenshotIcon.textContent = "photo_camera";
+    screenshotIcon.title = "Capture YouTube frame";
+    screenshotIcon.addEventListener("click", async () => {
+        try {
+            const dataUrl = await captureYouTubeFrame();
+            if (dataUrl) {
+                addToMainBody("image", dataUrl);
+                textEditor.focus();
             }
-        };
-        fileInput.click();
+        }
+        catch (err) {
+            console.error("Screenshot error:", err);
+            alert("Error capturing YouTube frame: " +
+                (err instanceof Error ? err.message : String(err)));
+        }
     });
-    formContainer.appendChild(cameraIcon);
+    formContainer.appendChild(screenshotIcon);
     // Pin icon
     const pinIcon = document.createElement("span");
     pinIcon.className = "material-symbols-outlined icon pin";
@@ -204,7 +195,6 @@ function createFloatingUI() {
         }
     });
     formContainer.appendChild(pinIcon);
-    // Text input field
     const inputWrapper = document.createElement("div");
     inputWrapper.className = "input-wrapper";
     const inputIcon = document.createElement("span");
@@ -218,7 +208,6 @@ function createFloatingUI() {
     const formattingToolbar = document.createElement("div");
     formattingToolbar.className = "formatting_toolbar";
     formattingToolbar.style.display = "none";
-    // Formatting buttons
     const boldButton = document.createElement("button");
     boldButton.innerHTML = "<b>B</b>";
     boldButton.addEventListener("click", () => {
@@ -261,23 +250,19 @@ function createFloatingUI() {
     formattingToolbar.appendChild(underlineButton);
     formattingToolbar.appendChild(bulletListButton);
     formattingToolbar.appendChild(numberedListButton);
-    // Text editor event listeners
     textEditor.addEventListener("focus", () => {
         if (textEditor.textContent === "Add a note") {
             textEditor.textContent = "";
             textEditor.style.color = "#000";
         }
         formattingToolbar.style.display = "flex";
-        cameraIcon.style.display = "none";
+        screenshotIcon.style.display = "none";
         pinIcon.style.display = "none";
         inputWrapper.style.width = "100%";
-        // Prevent background focus
-        if (document.activeElement instanceof HTMLElement &&
-            document.activeElement !== textEditor) {
-            document.activeElement.blur();
+        if (document.activeElement !== textEditor) {
+            document.activeElement?.blur();
         }
     });
-    // Stop key events from propagating to background
     textEditor.addEventListener("keydown", (e) => {
         e.stopPropagation();
         if (e.key === "Enter" && !e.shiftKey) {
@@ -301,7 +286,7 @@ function createFloatingUI() {
             textEditor.style.color = "#999";
         }
         formattingToolbar.style.display = "none";
-        cameraIcon.style.display = "inline-flex";
+        screenshotIcon.style.display = "inline-flex";
         pinIcon.style.display = "inline-flex";
         inputWrapper.style.width = "";
         document
@@ -317,11 +302,24 @@ function createFloatingUI() {
     function toggleHighlight(element) {
         element.classList.toggle("highlighted");
     }
-    // Make it draggable (assuming makeDraggable is defined elsewhere)
+    // YouTube frame capture function
+    async function captureYouTubeFrame() {
+        const youtubeVideo = document.querySelector("video"); // Standard YouTube player
+        if (!youtubeVideo) {
+            throw new Error("No YouTube video found on page");
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = youtubeVideo.videoWidth;
+        canvas.height = youtubeVideo.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            throw new Error("Could not get canvas context");
+        }
+        ctx.drawImage(youtubeVideo, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/png");
+    }
     makeDraggable(floatingDiv);
-    // Append to body
     document.body.appendChild(floatingDiv);
-    // Close functionality
     menuIconsRight.querySelector(".close")?.addEventListener("click", () => {
         floatingDiv.remove();
     });
