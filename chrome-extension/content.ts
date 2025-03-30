@@ -40,12 +40,12 @@ function createFloatingUI() {
   floatingDiv.id = "floating_ui";
   floatingDiv.className = "floating_ui";
 
-  // Set initial position (e.g., top-right corner)
-  floatingDiv.style.top = "20px"; // 20px from the top
-  floatingDiv.style.right = "20px"; // 20px from the right
-  floatingDiv.style.left = "auto"; // Ensure left is not set
-  floatingDiv.style.bottom = "auto"; // Ensure bottom is not set
-  floatingDiv.style.height = "35px"; // Ensure bottom is not set
+  // Set initial position
+  floatingDiv.style.top = "20px";
+  floatingDiv.style.right = "20px";
+  floatingDiv.style.left = "auto";
+  floatingDiv.style.bottom = "auto";
+  floatingDiv.style.height = "auto"; // Changed from fixed height to auto
 
   // Header bar
   const headerBar = document.createElement("div");
@@ -53,116 +53,172 @@ function createFloatingUI() {
 
   // Create a clickable link container
   const logoLink = document.createElement("a");
-  logoLink.href = "https://localhost:5000"; // Set the website URL
-  logoLink.target = "_blank"; // Open in a new tab
-  logoLink.rel = "noopener noreferrer"; // Security best practice
+  logoLink.href = "https://localhost:5000";
+  logoLink.target = "_blank";
+  logoLink.rel = "noopener noreferrer";
 
-  // Create a clickable container for the logo
   const logoButton = document.createElement("div");
-  logoButton.id = "ui-logo"; // Use a different ID to avoid conflict with summify-watermark
+  logoButton.id = "ui-logo";
   logoButton.className = "interactive_logo";
 
-  // Logo inside the button
   const logo = document.createElement("img");
   logo.src = chrome.runtime.getURL("icons/image.png");
   logo.alt = "Logo";
   logo.className = "logo";
 
-  // Text span for the transitioning effect
   const logoText = document.createElement("span");
   logoText.textContent = "To Notes >";
   logoText.className = "logo-text";
 
-  // Append logo and text to the button
   logoButton.appendChild(logo);
   logoButton.appendChild(logoText);
-
-  // Append logoButton inside the anchor link
   logoLink.appendChild(logoButton);
-
-  // ✅ Append the link (which contains the button) to the header
   headerBar.appendChild(logoLink);
 
-  // Three-dots (more options) button
+  // Menu options
   const menuOptions = document.createElement("div");
   menuOptions.className = "menu_options";
   menuOptions.innerHTML = `<span class="material-symbols-outlined icon more" style="border: none">more_vert</span>`;
   headerBar.appendChild(menuOptions);
 
-  // Close icon on the right side of the header
+  // Close icon
   const menuIconsRight = document.createElement("div");
   menuIconsRight.className = "menu_icons_right";
   menuIconsRight.innerHTML = `<span class="material-symbols-outlined icon close">close</span>`;
   headerBar.appendChild(menuIconsRight);
 
-  // ✅ Add Click Event (e.g., Open/Close Floating UI)
-  logoButton.addEventListener("click", () => {
-    console.log("UI Logo clicked!");
-    // Add logic to show/hide your floating UI or other actions
-  });
-
-  // Append header to floating div
   floatingDiv.appendChild(headerBar);
 
-  // Main content area// Create the main body
+  // Main content area
   const mainBody = document.createElement("div");
   mainBody.className = "main_body";
 
-  // Create a top row container
   const topRow = document.createElement("div");
   topRow.className = "top_row";
 
-  // Create the book icon
   const magicIcon = document.createElement("span");
   magicIcon.className = "material-symbols-outlined icon book_4_spark";
   magicIcon.textContent = "book_4_spark";
 
-  // Append the icon to the top row
   topRow.appendChild(magicIcon);
-
-  // Append the top row to the main body
   mainBody.appendChild(topRow);
-
-  // Append main body to floating div
   floatingDiv.appendChild(mainBody);
 
-  /// Footer
-  const footer: HTMLDivElement = document.createElement("div");
+  // Function to add content to main body
+  function addToMainBody(
+    contentType: string,
+    content: string | ArrayBuffer | null | undefined
+  ) {
+    const contentDiv = document.createElement("div");
+    contentDiv.className = "content-item";
+
+    const contentArea = document.createElement("div");
+    contentArea.className = "content-area";
+
+    switch (contentType) {
+      case "text":
+        contentArea.innerHTML = content?.toString() ?? "";
+        contentArea.contentEditable = "false";
+        contentArea.addEventListener("click", () => {
+          if (contentArea.contentEditable === "false") {
+            contentArea.contentEditable = "true";
+            contentArea.focus();
+
+            // Add event listeners to prevent background effects
+            contentArea.addEventListener("keydown", stopPropagation);
+            contentArea.addEventListener("keypress", stopPropagation);
+          }
+        });
+        contentArea.addEventListener("blur", () => {
+          contentArea.contentEditable = "false";
+
+          // Remove event listeners when editing is done
+          contentArea.removeEventListener("keydown", stopPropagation);
+          contentArea.removeEventListener("keypress", stopPropagation);
+        });
+        contentArea.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            contentArea.blur();
+          }
+        });
+        break;
+
+      case "image":
+        if (content) {
+          const img = document.createElement("img");
+          img.src = typeof content === "string" ? content : "";
+          img.style.maxWidth = "100%";
+          contentArea.appendChild(img);
+        }
+        break;
+      case "link":
+        const link = document.createElement("a");
+        link.href = content?.toString() ?? "";
+        link.textContent = content?.toString() ?? "";
+        link.target = "_blank";
+        contentArea.appendChild(link);
+        break;
+    }
+
+    contentDiv.appendChild(contentArea);
+
+    // Delete button
+    const deleteButton = document.createElement("span");
+    deleteButton.className = "delete-button material-symbols-outlined";
+    deleteButton.textContent = "delete";
+    deleteButton.addEventListener("click", () => {
+      contentDiv.remove();
+    });
+
+    contentDiv.appendChild(deleteButton);
+
+    if (mainBody.firstChild) {
+      mainBody.insertBefore(contentDiv, mainBody.firstChild.nextSibling);
+    } else {
+      mainBody.appendChild(contentDiv);
+    }
+  }
+
+  function stopPropagation(event: KeyboardEvent) {
+    event.stopPropagation();
+  }
+
+  // Footer
+  const footer = document.createElement("div");
   footer.className = "footer";
 
-  // Make the footer clickable to focus the text editor
-  footer.addEventListener("click", (e: Event) => {
+  footer.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
     if (
-      target.classList.contains("icon") ||
-      target.tagName === "BUTTON" ||
-      target.closest(".formatting_toolbar")
+      target?.classList.contains("icon") ||
+      target?.tagName === "BUTTON" ||
+      target?.closest(".formatting_toolbar")
     ) {
       return;
     }
     textEditor.focus();
   });
 
-  // Form container with camera, pin, and text input in a row
-  const formContainer: HTMLDivElement = document.createElement("div");
+  const formContainer = document.createElement("div");
   formContainer.className = "form_container";
 
   // Camera icon
-  const cameraIcon: HTMLSpanElement = document.createElement("span");
+  const cameraIcon = document.createElement("span");
   cameraIcon.className = "material-symbols-outlined icon camera";
   cameraIcon.textContent = "photo_camera";
   cameraIcon.addEventListener("click", () => {
-    const fileInput: HTMLInputElement = document.createElement("input");
+    const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*";
-    fileInput.onchange = (e: Event) => {
+    fileInput.onchange = (e) => {
       const input = e.target as HTMLInputElement;
       const file = input.files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (event: ProgressEvent<FileReader>) => {
-          const imageUrl = event.target?.result as string;
-          document.execCommand("insertImage", false, imageUrl);
+        reader.onload = (event) => {
+          const imageUrl = (event.target as FileReader).result;
+          addToMainBody("image", imageUrl);
           textEditor.focus();
         };
         reader.readAsDataURL(file);
@@ -173,41 +229,38 @@ function createFloatingUI() {
   formContainer.appendChild(cameraIcon);
 
   // Pin icon
-  const pinIcon: HTMLSpanElement = document.createElement("span");
+  const pinIcon = document.createElement("span");
   pinIcon.className = "material-symbols-outlined icon pin";
   pinIcon.textContent = "push_pin";
   pinIcon.addEventListener("click", () => {
-    const url: string | null = prompt("Enter a URL to insert:");
+    const url = prompt("Enter a URL to insert:");
     if (url) {
-      document.execCommand("createLink", false, url);
+      addToMainBody("link", url);
       textEditor.focus();
     }
   });
   formContainer.appendChild(pinIcon);
 
   // Text input field
-  const inputWrapper: HTMLDivElement = document.createElement("div");
+  const inputWrapper = document.createElement("div");
   inputWrapper.className = "input-wrapper";
 
-  // Create the icon (using a span with Material Symbols as an example)
-  const inputIcon: HTMLSpanElement = document.createElement("span");
+  const inputIcon = document.createElement("span");
   inputIcon.className = "material-symbols-outlined input-icon";
   inputIcon.textContent = "note";
 
-  // Create the contenteditable div for text input
-  const textEditor: HTMLDivElement = document.createElement("div");
+  const textEditor = document.createElement("div");
   textEditor.className = "text_editor";
   textEditor.contentEditable = "true";
   textEditor.textContent = "Add a note";
   textEditor.style.color = "#999";
 
-  // Create the formatting toolbar
-  const formattingToolbar: HTMLDivElement = document.createElement("div");
+  const formattingToolbar = document.createElement("div");
   formattingToolbar.className = "formatting_toolbar";
   formattingToolbar.style.display = "none";
 
   // Formatting buttons
-  const boldButton: HTMLButtonElement = document.createElement("button");
+  const boldButton = document.createElement("button");
   boldButton.innerHTML = "<b>B</b>";
   boldButton.addEventListener("click", () => {
     document.execCommand("bold", false, undefined);
@@ -215,7 +268,7 @@ function createFloatingUI() {
     toggleHighlight(boldButton);
   });
 
-  const italicButton: HTMLButtonElement = document.createElement("button");
+  const italicButton = document.createElement("button");
   italicButton.innerHTML = "<i>I</i>";
   italicButton.addEventListener("click", () => {
     document.execCommand("italic", false, undefined);
@@ -223,7 +276,7 @@ function createFloatingUI() {
     toggleHighlight(italicButton);
   });
 
-  const underlineButton: HTMLButtonElement = document.createElement("button");
+  const underlineButton = document.createElement("button");
   underlineButton.innerHTML = "<u>U</u>";
   underlineButton.addEventListener("click", () => {
     document.execCommand("underline", false, undefined);
@@ -231,7 +284,7 @@ function createFloatingUI() {
     toggleHighlight(underlineButton);
   });
 
-  const bulletListButton: HTMLButtonElement = document.createElement("button");
+  const bulletListButton = document.createElement("button");
   bulletListButton.innerHTML =
     '<span class="material-symbols-outlined">format_list_bulleted</span>';
   bulletListButton.addEventListener("click", () => {
@@ -240,8 +293,7 @@ function createFloatingUI() {
     toggleHighlight(bulletListButton);
   });
 
-  const numberedListButton: HTMLButtonElement =
-    document.createElement("button");
+  const numberedListButton = document.createElement("button");
   numberedListButton.innerHTML =
     '<span class="material-symbols-outlined">format_list_numbered</span>';
   numberedListButton.addEventListener("click", () => {
@@ -250,14 +302,13 @@ function createFloatingUI() {
     toggleHighlight(numberedListButton);
   });
 
-  // Append buttons to the toolbar
   formattingToolbar.appendChild(boldButton);
   formattingToolbar.appendChild(italicButton);
   formattingToolbar.appendChild(underlineButton);
   formattingToolbar.appendChild(bulletListButton);
   formattingToolbar.appendChild(numberedListButton);
 
-  // Clear placeholder text on focus and hide icons
+  // Text editor event listeners
   textEditor.addEventListener("focus", () => {
     if (textEditor.textContent === "Add a note") {
       textEditor.textContent = "";
@@ -268,72 +319,61 @@ function createFloatingUI() {
     pinIcon.style.display = "none";
     inputWrapper.style.width = "100%";
 
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement?.blur();
-    }
-
-    //Unfocus the youtube player if it is focused.
-    const youtubePlayer = document.querySelector("iframe"); //Replace with your youtube player selector if needed.
-    if (youtubePlayer && youtubePlayer === document.activeElement) {
-      youtubePlayer.blur();
-    }
-
-    textEditor.focus();
-  });
-
-  textEditor.addEventListener("keydown", (event) => {
-    event.stopPropagation();
-  });
-
-  textEditor.addEventListener("keypress", (event) => {
-    event.stopPropagation();
-  });
-
-  textEditor.addEventListener("keydown", (event) => {
-    event.stopPropagation();
-    if (event.key === "Escape") {
-      textEditor.blur(); // Close the text input
+    // Prevent background focus
+    if (
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== textEditor
+    ) {
+      document.activeElement.blur();
     }
   });
 
-  // Restore placeholder text if empty on blur and show icons
+  // Stop key events from propagating to background
+  textEditor.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (textEditor.textContent?.trim() !== "") {
+        addToMainBody("text", textEditor.innerHTML);
+        textEditor.textContent = "";
+        textEditor.style.color = "#999";
+      }
+    }
+    if (e.key === "Escape") {
+      textEditor.blur();
+    }
+  });
+
+  textEditor.addEventListener("keypress", (e) => {
+    e.stopPropagation();
+  });
+
   textEditor.addEventListener("blur", () => {
     if (textEditor.textContent?.trim() === "") {
       textEditor.textContent = "Add a note";
       textEditor.style.color = "#999";
     }
-    // Hide the formatting toolbar
     formattingToolbar.style.display = "none";
-    // Show the camera and pin icons
     cameraIcon.style.display = "inline-flex";
     pinIcon.style.display = "inline-flex";
-    // Reset input-wrapper width
     inputWrapper.style.width = "";
-    //remove all highlights when blur
     document
       .querySelectorAll(".formatting_toolbar button.highlighted")
       .forEach((el) => el.classList.remove("highlighted"));
   });
 
-  // Append toolbar, icon, and editor to the wrapper
   inputWrapper.appendChild(formattingToolbar);
   inputWrapper.appendChild(inputIcon);
   inputWrapper.appendChild(textEditor);
-
-  // Append the wrapper to the form container
   formContainer.appendChild(inputWrapper);
-
-  // Append form container to footer
   footer.appendChild(formContainer);
-
-  // Append footer to floating div
   floatingDiv.appendChild(footer);
 
   function toggleHighlight(element: HTMLButtonElement) {
     element.classList.toggle("highlighted");
   }
 
-  // Make it draggable
+  // Make it draggable (assuming makeDraggable is defined elsewhere)
   makeDraggable(floatingDiv);
 
   // Append to body
@@ -375,4 +415,7 @@ function makeDraggable(element: HTMLDivElement) {
     document.onmouseup = null;
     document.onmousemove = null;
   }
+}
+function stopPropagation(this: HTMLDivElement, ev: KeyboardEvent) {
+  throw new Error("Function not implemented.");
 }

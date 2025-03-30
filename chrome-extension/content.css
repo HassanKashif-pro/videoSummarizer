@@ -102,7 +102,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px;
+  padding: 5px;
   background: #fff;
   border-bottom: 1px solid #eee;
   border-top-left-radius: 8px;
@@ -278,13 +278,13 @@
 .formatting_toolbar {
   display: none; /* Hidden by default */
   position: absolute; /* Prevent layout shift */
-  top: -40px; /* Position above the text_editor, adjust as needed */
+  top: -45px; /* Adjust top to create more space */
   left: 0;
   gap: 5px;
-  padding: 4px;
+  padding: 6px; /* Increase padding for better spacing */
   background: #f5f5f5;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 6px; /* Increase border radius */
   width: 100%;
   box-sizing: border-box;
   z-index: 2; /* Ensure toolbar is above other elements */
@@ -302,8 +302,8 @@
   font-weight: 600;
   cursor: pointer;
   font-size: 15px;
-  padding: 2px 6px;
-  border-radius: 2px;
+  padding: 4px 8px; /* Increase padding for buttons */
+  border-radius: 4px; /* Increase button border radius */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,12 +312,60 @@
 .formatting_toolbar button:hover {
   background: #ddd;
 }
+
 .formatting_toolbar button.highlighted {
   background-color: #d4d3d3;
 }
+
 /* Ensure cursor consistency */
 .text_editor,
 .formatting_toolbar,
 .formatting_toolbar button {
   cursor: text;
+}
+
+.content-item {
+  display: flex;
+  align-items: flex-start;
+  font-weight: 400;
+  font-size: 15px;
+  padding: 12px;
+  margin-bottom: 8px;
+  margin-top: 8px;
+  word-wrap: break-word;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.content-area {
+  flex-grow: 1;
+  cursor: text; /* Default text cursor */
+}
+
+.content-area[contenteditable="true"] {
+  border: 1px solid #ccc;
+  padding: 5px;
+  outline: none;
+  cursor: text; /* Maintain text cursor when editing */
+}
+
+.content-area:hover {
+  cursor: pencil; /* Change cursor on hover */
+}
+
+.delete-button {
+  cursor: pointer;
+  font-size: 19px !important;
+  color: #888;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.content-item:hover .delete-button {
+  opacity: 1;
 }
