@@ -342,21 +342,122 @@
 }
 
 .content-area {
-  flex-grow: 1;
-  cursor: text; /* Default text cursor */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
-.content-area[contenteditable="true"] {
-  border: 1px solid #ccc;
-  padding: 5px;
+.content-area img {
+  width: 100%;
+  display: block;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+/* Text button styling */
+.add-text-icon.material-symbols-outlined {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  border-radius: 10%;
+  padding: 8px;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #000000;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.add-text-icon.material-symbols-outlined:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Content area hover state */
+.content-area:hover .add-text-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Text input styling */
+.content-area textarea {
+  position: relative;
+  width: 100%;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 14px;
+  min-height: 60px;
+  resize: vertical;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.content-area textarea:focus {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   outline: none;
-  cursor: text; /* Maintain text cursor when editing */
+  border-color: #1a73e8;
 }
 
-.content-area:hover {
-  cursor: pencil; /* Change cursor on hover */
+/* Text display styling */
+.content-area .text-display {
+  position: relative;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
 }
 
+.content-area .text-display:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #1a73e8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  outline: none;
+}
+
+.content-area .text-display:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure content area has proper spacing */
+.content-item {
+  margin: 16px 0;
+  position: relative;
+}
+
+/* Timestamp container styling */
+.timestamp-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Delete button styling */
 .delete-button {
   cursor: pointer;
   font-size: 19px !important;
@@ -372,24 +473,24 @@
 .content-item:hover .delete-button {
   opacity: 1;
 }
+
+/* Clickable timestamp styling */
 .clickable-timestamp {
-  cursor: pointer; /* Change cursor on hover */
-  display: inline-flex; /* Use inline-flex for better button sizing */
-  align-items: center; /* Vertically align icon and text */
-  font-size: 12px;
-  color: #f61818;
-  background: none; /* Remove default button background */
-  border: none; /* Remove default button border */
-  padding: 4px 8px; /* Add padding for better button appearance */
-  border-radius: 4px; /* Add border radius for a button look */
-  margin-top: 5px; /* Add margin for spacing */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .clickable-timestamp:hover {
-  background-color: #f0f0f0; /* Optional: Add background color on hover */
+  background: rgba(0, 0, 0, 0.1);
 }
 
-.timestamp .material-symbols-outlined {
-  margin-right: 4px;
-  font-size: 18px !important;
+.clickable-timestamp .material-symbols-outlined {
+  font-size: 16px;
 }

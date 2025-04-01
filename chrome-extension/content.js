@@ -115,6 +115,69 @@ function createFloatingUI() {
                     img.src = typeof content === "string" ? content : "";
                     img.style.maxWidth = "100%";
                     contentArea.appendChild(img);
+                    // Add text icon button with improved styling
+                    const addTextButton = document.createElement("button");
+                    addTextButton.className = "add-text-icon material-symbols-outlined";
+                    addTextButton.textContent = "text_fields";
+                    Object.assign(addTextButton.style, {
+                        position: "absolute",
+                        top: "10px",
+                        right: "10px",
+                        background: "rgba(255, 255, 255, 0.85)",
+                        border: "none",
+                        borderRadius: "50%",
+                        padding: "8px",
+                        cursor: "pointer",
+                        opacity: "0",
+                        transform: "scale(0.9)",
+                        transition: "all 0.2s ease-in-out",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        color: "#1a73e8",
+                        fontSize: "20px",
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    });
+                    addTextButton.addEventListener("click", () => {
+                        addTextToImage(contentArea);
+                    });
+                    // Add hover effects
+                    addTextButton.addEventListener("mouseover", () => {
+                        Object.assign(addTextButton.style, {
+                            background: "rgba(255, 255, 255, 0.95)",
+                            transform: "scale(1.1)",
+                            boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
+                        });
+                    });
+                    addTextButton.addEventListener("mouseout", () => {
+                        Object.assign(addTextButton.style, {
+                            background: "rgba(255, 255, 255, 0.85)",
+                            transform: "scale(1)",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        });
+                    });
+                    contentArea.appendChild(addTextButton);
+                    // Improved container hover effects
+                    contentArea.addEventListener("mouseover", () => {
+                        addTextButton.style.display = "flex";
+                        // Use setTimeout to trigger the transition after display is set
+                        setTimeout(() => {
+                            addTextButton.style.opacity = "1";
+                            addTextButton.style.transform = "scale(1)";
+                        }, 0);
+                    });
+                    contentArea.addEventListener("mouseout", () => {
+                        addTextButton.style.opacity = "0";
+                        addTextButton.style.transform = "scale(0.9)";
+                        // Hide the button after transition completes
+                        setTimeout(() => {
+                            if (addTextButton.style.opacity === "0") {
+                                addTextButton.style.display = "none";
+                            }
+                        }, 200);
+                    });
                 }
                 break;
             case "link":
@@ -146,14 +209,7 @@ function createFloatingUI() {
                     video.currentTime = timeInSeconds;
                 }
             });
-            contentDiv.appendChild(timestampButton);
-        }
-        // Function to parse timestamp string to seconds
-        function parseTimestamp(timestampString) {
-            const parts = timestampString.split(":");
-            const minutes = parseInt(parts[0], 10);
-            const seconds = parseInt(parts[1], 10);
-            return minutes * 60 + seconds;
+            timestampContainer.appendChild(timestampButton); // Append to timestampContainer
         }
         const deleteButton = document.createElement("span");
         deleteButton.className = "delete-button material-symbols-outlined";
@@ -161,8 +217,15 @@ function createFloatingUI() {
         deleteButton.addEventListener("click", () => {
             contentDiv.remove();
         });
-        contentDiv.appendChild(deleteButton);
-        contentDiv.appendChild(timestampContainer);
+        timestampContainer.appendChild(deleteButton); // Append to timestampContainer
+        contentDiv.appendChild(timestampContainer); // Append timestampContainer to contentDiv
+        // Function to parse timestamp string to seconds
+        function parseTimestamp(timestampString) {
+            const parts = timestampString.split(":");
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseInt(parts[1], 10);
+            return minutes * 60 + seconds;
+        }
         // Insert contentDiv after topRow
         if (mainBody.firstChild) {
             if (mainBody.firstChild.nextSibling) {
@@ -175,6 +238,44 @@ function createFloatingUI() {
         else {
             mainBody.appendChild(contentDiv);
         }
+    }
+    function addTextToImage(contentArea) {
+        const textInput = document.createElement("textarea");
+        textInput.placeholder = "Add text context...";
+        textInput.style.position = "relative";
+        textInput.style.width = "100%";
+        textInput.style.marginTop = "8px";
+        textInput.style.background = "rgba(255, 255, 255, 0.9)";
+        textInput.style.padding = "8px";
+        textInput.style.border = "1px solid rgba(0, 0, 0, 0.1)";
+        textInput.style.borderRadius = "4px";
+        textInput.style.fontSize = "14px";
+        textInput.style.minHeight = "60px";
+        textInput.style.resize = "vertical";
+        const textDisplay = document.createElement("div");
+        textDisplay.style.position = "relative";
+        textDisplay.style.width = "100%";
+        textDisplay.style.marginTop = "8px";
+        textDisplay.style.padding = "8px";
+        textDisplay.style.background = "rgba(255, 255, 255, 0.8)";
+        textDisplay.style.borderRadius = "4px";
+        textDisplay.style.fontSize = "14px";
+        textDisplay.style.lineHeight = "1.4";
+        textDisplay.style.color = "#333";
+        textDisplay.style.display = "none";
+        textInput.addEventListener("input", () => {
+            textDisplay.textContent = textInput.value;
+            textDisplay.style.display = textInput.value ? "block" : "none";
+        });
+        contentArea.appendChild(textInput);
+        contentArea.appendChild(textDisplay);
+        // Remove input field when it loses focus and there's no text
+        textInput.addEventListener("blur", () => {
+            if (!textInput.value.trim()) {
+                contentArea.removeChild(textInput);
+                contentArea.removeChild(textDisplay);
+            }
+        });
     }
     function stopPropagation(event) {
         event.stopPropagation();
