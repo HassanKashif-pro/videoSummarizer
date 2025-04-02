@@ -494,3 +494,43 @@
 .clickable-timestamp .material-symbols-outlined {
   font-size: 16px;
 }
+.image-text-input {
+  position: relative;
+  width: 95%;
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+  outline: none;
+  transition: all 0.2s ease;
+  cursor: text;
+}
+
+.image-text-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.pinned-timestamp {
+  background-color: #f0f0f0; /* Light background */
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-family: sans-serif;
+  font-size: 14px;
+  display: inline-flex; /* Use flexbox for alignment */
+  align-items: center; /* Vertically align items */
+  cursor: pointer; /* Change cursor on hover */
+}
+
+.pinned-timestamp span:first-child {
+  margin-right: 5px; /* Add space between icon and text */
+}
+
+/* Optional: Add hover effect */
+.pinned-timestamp:hover {
+  background-color: #e0e0e0;
+}

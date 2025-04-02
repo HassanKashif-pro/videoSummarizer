@@ -29,7 +29,6 @@ const checkInterval = setInterval(() => {
     }
 }, 1000);
 function createFloatingUI() {
-    // Remove existing UI if present
     const existingUI = document.getElementById("floating_ui");
     if (existingUI)
         existingUI.remove();
@@ -80,7 +79,7 @@ function createFloatingUI() {
     topRow.appendChild(magicIcon);
     mainBody.appendChild(topRow);
     floatingDiv.appendChild(mainBody);
-    function addToMainBody(contentType, content, timestamp) {
+    function addToMainBody(contentType, content, timestamp, pin = false) {
         const contentDiv = document.createElement("div");
         contentDiv.className = "content-item";
         const contentArea = document.createElement("div");
@@ -115,7 +114,6 @@ function createFloatingUI() {
                     img.src = typeof content === "string" ? content : "";
                     img.style.maxWidth = "100%";
                     contentArea.appendChild(img);
-                    // Add text icon button with improved styling
                     const addTextButton = document.createElement("button");
                     addTextButton.className = "add-text-icon material-symbols-outlined";
                     addTextButton.textContent = "text_fields";
@@ -125,14 +123,14 @@ function createFloatingUI() {
                         right: "10px",
                         background: "rgba(255, 255, 255, 0.85)",
                         border: "none",
-                        borderRadius: "50%",
+                        borderRadius: "10%",
                         padding: "8px",
                         cursor: "pointer",
                         opacity: "0",
                         transform: "scale(0.9)",
                         transition: "all 0.2s ease-in-out",
                         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                        color: "#1a73e8",
+                        color: "#000000",
                         fontSize: "20px",
                         width: "32px",
                         height: "32px",
@@ -140,10 +138,13 @@ function createFloatingUI() {
                         alignItems: "center",
                         justifyContent: "center",
                     });
-                    addTextButton.addEventListener("click", () => {
-                        addTextToImage(contentArea);
+                    contentArea.addEventListener("click", (e) => {
+                        console.log("contentArea clicked");
+                        let textInput = contentArea.querySelector(".image-text-input");
+                        if (!textInput) {
+                            addTextToImage(contentArea);
+                        }
                     });
-                    // Add hover effects
                     addTextButton.addEventListener("mouseover", () => {
                         Object.assign(addTextButton.style, {
                             background: "rgba(255, 255, 255, 0.95)",
@@ -159,10 +160,8 @@ function createFloatingUI() {
                         });
                     });
                     contentArea.appendChild(addTextButton);
-                    // Improved container hover effects
                     contentArea.addEventListener("mouseover", () => {
                         addTextButton.style.display = "flex";
-                        // Use setTimeout to trigger the transition after display is set
                         setTimeout(() => {
                             addTextButton.style.opacity = "1";
                             addTextButton.style.transform = "scale(1)";
@@ -171,7 +170,6 @@ function createFloatingUI() {
                     contentArea.addEventListener("mouseout", () => {
                         addTextButton.style.opacity = "0";
                         addTextButton.style.transform = "scale(0.9)";
-                        // Hide the button after transition completes
                         setTimeout(() => {
                             if (addTextButton.style.opacity === "0") {
                                 addTextButton.style.display = "none";
@@ -189,11 +187,11 @@ function createFloatingUI() {
                 break;
         }
         contentDiv.appendChild(contentArea);
-        const timestampContainer = document.createElement("div"); // Container for timestamp and delete button
+        const timestampContainer = document.createElement("div");
         timestampContainer.className = "timestamp-container";
         if (timestamp) {
-            const timestampButton = document.createElement("button"); // Use button element
-            timestampButton.className = "timestamp clickable-timestamp"; // Add classes
+            const timestampButton = document.createElement("button");
+            timestampButton.className = "timestamp clickable-timestamp";
             const playIcon = document.createElement("span");
             playIcon.className = "material-symbols-outlined";
             playIcon.textContent = "play_arrow";
@@ -201,15 +199,14 @@ function createFloatingUI() {
             timestampText.textContent = timestamp;
             timestampButton.appendChild(playIcon);
             timestampButton.appendChild(timestampText);
-            // Add click event listener
             timestampButton.addEventListener("click", () => {
-                const video = document.querySelector("video"); // Replace with your video element selector
+                const video = document.querySelector("video");
                 if (video) {
-                    const timeInSeconds = parseTimestamp(timestamp); // Convert timestamp to seconds
+                    const timeInSeconds = parseTimestamp(timestamp);
                     video.currentTime = timeInSeconds;
                 }
             });
-            timestampContainer.appendChild(timestampButton); // Append to timestampContainer
+            timestampContainer.appendChild(timestampButton);
         }
         const deleteButton = document.createElement("span");
         deleteButton.className = "delete-button material-symbols-outlined";
@@ -217,84 +214,125 @@ function createFloatingUI() {
         deleteButton.addEventListener("click", () => {
             contentDiv.remove();
         });
-        timestampContainer.appendChild(deleteButton); // Append to timestampContainer
-        contentDiv.appendChild(timestampContainer); // Append timestampContainer to contentDiv
-        // Function to parse timestamp string to seconds
-        function parseTimestamp(timestampString) {
-            const parts = timestampString.split(":");
-            const minutes = parseInt(parts[0], 10);
-            const seconds = parseInt(parts[1], 10);
-            return minutes * 60 + seconds;
+        timestampContainer.appendChild(deleteButton);
+        contentDiv.appendChild(timestampContainer);
+        if (pin) {
+            contentDiv.classList.add("pinned");
         }
-        // Insert contentDiv after topRow
-        if (mainBody.firstChild) {
-            if (mainBody.firstChild.nextSibling) {
-                mainBody.insertBefore(contentDiv, mainBody.firstChild.nextSibling);
+        const mainBody = document.querySelector(".main_body");
+        if (!mainBody)
+            return;
+        if (mainBody.firstChild && mainBody.firstChild.nextSibling) {
+            if (pin) {
+                mainBody.insertBefore(contentDiv, mainBody.firstChild);
             }
             else {
-                mainBody.appendChild(contentDiv);
+                mainBody.insertBefore(contentDiv, mainBody.firstChild.nextSibling);
             }
         }
         else {
             mainBody.appendChild(contentDiv);
         }
     }
-    function addTextToImage(contentArea) {
-        const textInput = document.createElement("textarea");
-        textInput.placeholder = "Add text context...";
-        textInput.style.position = "relative";
-        textInput.style.width = "100%";
-        textInput.style.marginTop = "8px";
-        textInput.style.background = "rgba(255, 255, 255, 0.9)";
-        textInput.style.padding = "8px";
-        textInput.style.border = "1px solid rgba(0, 0, 0, 0.1)";
-        textInput.style.borderRadius = "4px";
-        textInput.style.fontSize = "14px";
-        textInput.style.minHeight = "60px";
-        textInput.style.resize = "vertical";
-        const textDisplay = document.createElement("div");
-        textDisplay.style.position = "relative";
-        textDisplay.style.width = "100%";
-        textDisplay.style.marginTop = "8px";
-        textDisplay.style.padding = "8px";
-        textDisplay.style.background = "rgba(255, 255, 255, 0.8)";
-        textDisplay.style.borderRadius = "4px";
-        textDisplay.style.fontSize = "14px";
-        textDisplay.style.lineHeight = "1.4";
-        textDisplay.style.color = "#333";
-        textDisplay.style.display = "none";
-        textInput.addEventListener("input", () => {
-            textDisplay.textContent = textInput.value;
-            textDisplay.style.display = textInput.value ? "block" : "none";
-        });
-        contentArea.appendChild(textInput);
-        contentArea.appendChild(textDisplay);
-        // Remove input field when it loses focus and there's no text
-        textInput.addEventListener("blur", () => {
-            if (!textInput.value.trim()) {
-                contentArea.removeChild(textInput);
-                contentArea.removeChild(textDisplay);
+    function pinTimestamp(videoElement) {
+        const mainBody = document.querySelector(".main_body");
+        if (!mainBody)
+            return;
+        const currentTime = formatTime(videoElement.currentTime);
+        const pinnedTimestampDiv = document.createElement("div");
+        pinnedTimestampDiv.className = "pinned-timestamp";
+        // Create a play icon (if you have one)
+        const playIcon = document.createElement("span");
+        playIcon.className = "material-symbols-outlined"; // Or your icon class
+        playIcon.textContent = "play_arrow"; // Or your icon text
+        // Create a span for the timestamp text
+        const timestampText = document.createElement("span");
+        timestampText.textContent = `Pinned Time: ${currentTime}`;
+        // Append the icon and text to the pinnedTimestampDiv
+        pinnedTimestampDiv.appendChild(playIcon);
+        pinnedTimestampDiv.appendChild(timestampText);
+        // Add event listener to jump to timestamp when clicked
+        pinnedTimestampDiv.addEventListener("click", () => {
+            const timeInSeconds = parseTimestamp(currentTime); // Parse the timestamp
+            if (videoElement) {
+                videoElement.currentTime = timeInSeconds;
             }
         });
+        // Remove any existing pinned timestamp
+        const existingPinnedTimestamp = document.querySelector(".pinned-timestamp");
+        if (existingPinnedTimestamp) {
+            existingPinnedTimestamp.remove();
+        }
+        // Insert the new pinned timestamp at the top
+        mainBody.insertBefore(pinnedTimestampDiv, mainBody.firstChild);
     }
     function stopPropagation(event) {
         event.stopPropagation();
+    }
+    function addTextToImage(contentArea, isButtonClick = false) {
+        let textInput = contentArea.querySelector(".image-text-input");
+        if (isButtonClick && textInput) {
+            // If it's a button click and text input exists, remove it
+            contentArea.removeChild(textInput);
+        }
+        else if (!textInput) {
+            // If text input doesn't exist, create and append it
+            textInput = document.createElement("div");
+            textInput.className = "image-text-input";
+            textInput.setAttribute("placeholder", "Add text context...");
+            textInput.contentEditable = "true";
+            textInput.style.display = "block";
+            // Focus Handling
+            textInput.addEventListener("focus", () => {
+                if (document.activeElement !== textInput) {
+                    document.activeElement?.blur();
+                }
+            });
+            // Key Events Handling
+            textInput.addEventListener("keydown", (event) => {
+                event.stopPropagation();
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    textInput?.blur();
+                }
+                if (event.key === "Escape") {
+                    textInput?.blur();
+                }
+            });
+            textInput.addEventListener("keypress", (event) => {
+                event.stopPropagation();
+            });
+            // Blur Handling
+            textInput.addEventListener("blur", () => {
+                if (textInput &&
+                    textInput.textContent &&
+                    !textInput.textContent.trim()) {
+                    contentArea.removeChild(textInput);
+                }
+            });
+            contentArea.appendChild(textInput);
+            textInput.focus();
+        }
+    }
+    function parseTimestamp(timestampString) {
+        const parts = timestampString.split(":");
+        const minutes = parseInt(parts[0], 10);
+        const seconds = parseInt(parts[1], 10);
+        return minutes * 60 + seconds;
     }
     const footer = document.createElement("div");
     footer.className = "footer";
     footer.addEventListener("click", (e) => {
         const target = e.target;
-        if (target instanceof Element &&
-            (target.classList.contains("icon") ||
-                target.tagName === "BUTTON" ||
-                target.closest(".formatting_toolbar"))) {
+        if (target.classList.contains("icon") ||
+            target.tagName === "BUTTON" ||
+            target.closest(".formatting_toolbar")) {
             return;
         }
         textEditor.focus();
     });
     const formContainer = document.createElement("div");
     formContainer.className = "form_container";
-    // Screenshot icon
     const screenshotIcon = document.createElement("span");
     screenshotIcon.className = "material-symbols-outlined icon camera";
     screenshotIcon.textContent = "photo_camera";
@@ -315,16 +353,14 @@ function createFloatingUI() {
         }
     });
     formContainer.appendChild(screenshotIcon);
-    // Pin icon
     const pinIcon = document.createElement("span");
     pinIcon.className = "material-symbols-outlined icon pin";
     pinIcon.textContent = "push_pin";
+    pinIcon.title = "Pin current timestamp";
     pinIcon.addEventListener("click", () => {
-        const url = prompt("Enter a URL to insert:");
-        if (url) {
-            const currentTime = formatTime(document.querySelector("video")?.currentTime || 0);
-            addToMainBody("link", url, currentTime);
-            textEditor.focus();
+        const video = document.querySelector("video");
+        if (video) {
+            pinTimestamp(video);
         }
     });
     formContainer.appendChild(pinIcon);
@@ -436,9 +472,8 @@ function createFloatingUI() {
     function toggleHighlight(element) {
         element.classList.toggle("highlighted");
     }
-    // YouTube frame capture function
     async function captureYouTubeFrame() {
-        const youtubeVideo = document.querySelector("video"); // Standard YouTube player
+        const youtubeVideo = document.querySelector("video");
         if (!youtubeVideo) {
             throw new Error("No YouTube video found on page");
         }
@@ -487,7 +522,4 @@ function makeDraggable(element) {
         document.onmouseup = null;
         document.onmousemove = null;
     }
-}
-function stopPropagation(ev) {
-    throw new Error("Function not implemented.");
 }
