@@ -72,6 +72,51 @@ function createFloatingUI() {
   const menuOptions = document.createElement("div");
   menuOptions.className = "menu_options";
   menuOptions.innerHTML = `<span class="material-symbols-outlined icon more" style="border: none">more_vert</span>`;
+
+  // Create the dropdown menu
+  const optionsMenu = document.createElement("div");
+  optionsMenu.className = "options-menu";
+
+  // Create "Help Notebook" button
+  const helpButton = document.createElement("button");
+  helpButton.className = "option-button";
+  helpButton.innerHTML = `
+  <i class="material-symbols-outlined">help</i>
+  <span>Help Notebook</span>
+`;
+
+  // Create "Log Out" button
+  const logoutButton = document.createElement("button");
+  logoutButton.className = "option-button";
+  logoutButton.innerHTML = `
+  <span>Log Out</span>
+  <span class="material-symbols-outlined logout-menu-icon">logout</span>
+`;
+
+  // Append buttons to the dropdown menu
+  optionsMenu.appendChild(helpButton);
+  optionsMenu.appendChild(logoutButton);
+
+  // Append the dropdown menu to the menuOptions div
+  menuOptions.appendChild(optionsMenu);
+
+  // Initially hide the dropdown menu
+  optionsMenu.style.display = "none";
+
+  // Add click event listener to toggle the dropdown
+  menuOptions.addEventListener("click", (event) => {
+    optionsMenu.style.display =
+      optionsMenu.style.display === "block" ? "none" : "block";
+    event.stopPropagation(); // Prevent event bubbling
+  });
+
+  // Close the menu when clicking outside
+  document.addEventListener("click", (event) => {
+    if (!menuOptions.contains(event.target as Node)) {
+      optionsMenu.style.display = "none";
+    }
+  });
+
   headerBar.appendChild(menuOptions);
 
   const menuIconsRight = document.createElement("div");
@@ -369,6 +414,7 @@ function createFloatingUI() {
       textInput.focus();
     }
   }
+
   function parseTimestamp(timestampString: string): number {
     const parts = timestampString.split(":");
     const minutes = parseInt(parts[0], 10);

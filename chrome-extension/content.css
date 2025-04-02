@@ -227,6 +227,50 @@
   border: none;
   font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24; /* Decreased weight to 300 */
 }
+.menu_options .icon.more {
+  cursor: pointer;
+}
+.options-menu {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 3px; /* Smaller border radius */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); /* Smaller shadow */
+  z-index: 1;
+  top: 30px;
+  right: 30px;
+  min-width: 150px; /* Smaller width */
+  display: none;
+  padding: 3px 0; /* Smaller padding */
+  font-size: 12px; /* Smaller font size */
+}
+
+.option-button {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px; /* Smaller padding */
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option-button i,
+.option-button span {
+  margin-right: 5px; /* Smaller margin */
+}
+
+.option-button:hover {
+  background-color: #f0f0f0;
+}
+
+.logout-menu-icon {
+  width: 20px; /* Smaller logo width */
+  height: 20px; /* Smaller logo height */
+  margin-right: 5px; /* Smaller margin */
+}
+
 /* Input wrapper (from your earlier CSS) */
 .input-wrapper {
   position: relative;
