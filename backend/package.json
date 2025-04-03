@@ -3,19 +3,22 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "ts-node server.ts",
+    "dev": "ts-node-dev --respawn server.ts",
+    "build": "tsc",
+    "serve": "node dist/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "axios": "^1.8.3",
+    "axios": "^1.8.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^148.0.0",
-    "openai": "^4.87.3",
+    "openai": "^4.91.1",
     "youtube-transcript": "^1.2.1",
     "youtube-transcript-api": "^1.1.2"
   },
@@ -24,6 +27,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.10",
     "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.2"
   }
 }
