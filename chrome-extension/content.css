@@ -144,8 +144,8 @@
 
 .top_row {
   display: flex;
-  justify-content: flex-start; /* Align children to the left */
-  align-items: center; /* Vertically center the icons and input */
+  justify-content: space-between; /* Changed from flex-start to space-between */
+  align-items: center;
   width: 100% !important;
 }
 
@@ -156,6 +156,15 @@
   cursor: pointer;
   padding-left: 5px;
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.material-symbols-outlined.icon.summarize {
+  font-size: 20px;
+  color: #666;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  padding-left: 5px;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  margin-left: auto; /* This will push the summarize button to the right */
 }
 
 .footer {

@@ -136,7 +136,13 @@ function createFloatingUI() {
   magicIcon.className = "material-symbols-outlined icon book_4_spark";
   magicIcon.textContent = "book_4_spark";
 
+  const summarizeIcon = document.createElement("span");
+  summarizeIcon.className = "material-symbols-outlined icon summarize";
+  summarizeIcon.textContent = "summarize";
+
+  // Add the icons to the topRow div
   topRow.appendChild(magicIcon);
+  topRow.appendChild(summarizeIcon); // Add the summarize icon
   mainBody.appendChild(topRow);
   floatingDiv.appendChild(mainBody);
 
