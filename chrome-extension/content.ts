@@ -46,6 +46,7 @@ function createFloatingUI() {
   const headerBar = document.createElement("div");
   headerBar.className = "header_bar";
 
+  // Left side - Logo
   const logoLink = document.createElement("a");
   logoLink.href = "https://localhost:5000";
   logoLink.target = "_blank";
@@ -67,8 +68,12 @@ function createFloatingUI() {
   logoButton.appendChild(logo);
   logoButton.appendChild(logoText);
   logoLink.appendChild(logoButton);
-  headerBar.appendChild(logoLink);
 
+  // Right side - Menu and Close buttons
+  const rightSection = document.createElement("div");
+  rightSection.className = "menu_icons_right";
+
+  // Menu options (three dots)
   const menuOptions = document.createElement("div");
   menuOptions.className = "menu_options";
   menuOptions.innerHTML = `<span class="material-symbols-outlined icon more" style="border: none">more_vert</span>`;
@@ -81,23 +86,21 @@ function createFloatingUI() {
   const helpButton = document.createElement("button");
   helpButton.className = "option-button";
   helpButton.innerHTML = `
-  <i class="material-symbols-outlined">help</i>
-  <span>Help Notebook</span>
-`;
+    <i class="material-symbols-outlined">help</i>
+    <span>Help Notebook</span>
+  `;
 
   // Create "Log Out" button
   const logoutButton = document.createElement("button");
   logoutButton.className = "option-button";
   logoutButton.innerHTML = `
-  <span>Log Out</span>
-  <span class="material-symbols-outlined logout-menu-icon">logout</span>
-`;
+    <span>Log Out</span>
+    <span class="material-symbols-outlined logout-menu-icon">logout</span>
+  `;
 
   // Append buttons to the dropdown menu
   optionsMenu.appendChild(helpButton);
   optionsMenu.appendChild(logoutButton);
-
-  // Append the dropdown menu to the menuOptions div
   menuOptions.appendChild(optionsMenu);
 
   // Initially hide the dropdown menu
@@ -107,7 +110,7 @@ function createFloatingUI() {
   menuOptions.addEventListener("click", (event) => {
     optionsMenu.style.display =
       optionsMenu.style.display === "block" ? "none" : "block";
-    event.stopPropagation(); // Prevent event bubbling
+    event.stopPropagation();
   });
 
   // Close the menu when clicking outside
@@ -117,12 +120,20 @@ function createFloatingUI() {
     }
   });
 
-  headerBar.appendChild(menuOptions);
+  // Close button
+  const closeButton = document.createElement("span");
+  closeButton.className = "material-symbols-outlined icon close";
+  closeButton.textContent = "close";
+  closeButton.addEventListener("click", () => {
+    floatingDiv.remove();
+  });
 
-  const menuIconsRight = document.createElement("div");
-  menuIconsRight.className = "menu_icons_right";
-  menuIconsRight.innerHTML = `<span class="material-symbols-outlined icon close">close</span>`;
-  headerBar.appendChild(menuIconsRight);
+  // Assemble the header
+  rightSection.appendChild(menuOptions);
+  rightSection.appendChild(closeButton);
+
+  headerBar.appendChild(logoLink);
+  headerBar.appendChild(rightSection);
 
   floatingDiv.appendChild(headerBar);
 
@@ -139,10 +150,64 @@ function createFloatingUI() {
   const summarizeIcon = document.createElement("span");
   summarizeIcon.className = "material-symbols-outlined icon summarize";
   summarizeIcon.textContent = "summarize";
+  summarizeIcon.title = "Generate Summary";
+
+  // Add summarize functionality to the top row button
+  summarizeIcon.addEventListener("click", async () => {
+    try {
+      const videoId = new URL(window.location.href).searchParams.get("v");
+      if (!videoId) {
+        throw new Error("No video ID found");
+      }
+
+      // Show loading state
+      summarizeIcon.textContent = "hourglass_empty";
+
+      // Get transcript
+      const transcriptResponse = await fetch(
+        `http://localhost:5000/transcript/${videoId}`
+      );
+      const transcriptData = await transcriptResponse.json();
+
+      if (transcriptData.error) {
+        throw new Error(transcriptData.error);
+      }
+
+      // Get summary
+      const summaryResponse = await fetch("http://localhost:5000/summarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ transcript: transcriptData.transcript }),
+      });
+
+      const summaryData = await summaryResponse.json();
+
+      if (summaryData.error) {
+        throw new Error(summaryData.error);
+      }
+
+      // Add summary to the UI
+      addToMainBody("text", summaryData.summary, undefined, true);
+    } catch (error: unknown) {
+      console.error("Summarization error:", error);
+      // Show error in UI
+      addToMainBody(
+        "text",
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        undefined,
+        true
+      );
+    } finally {
+      // Reset button state
+      summarizeIcon.textContent = "summarize";
+    }
+  });
 
   // Add the icons to the topRow div
   topRow.appendChild(magicIcon);
-  topRow.appendChild(summarizeIcon); // Add the summarize icon
+  topRow.appendChild(summarizeIcon);
   mainBody.appendChild(topRow);
   floatingDiv.appendChild(mainBody);
 
@@ -266,10 +331,11 @@ function createFloatingUI() {
 
     contentDiv.appendChild(contentArea);
 
-    const timestampContainer = document.createElement("div");
-    timestampContainer.className = "timestamp-container";
+    // Only add timestamp container if there's a timestamp and it's not a summary (pin === false)
+    if (timestamp && !pin) {
+      const timestampContainer = document.createElement("div");
+      timestampContainer.className = "timestamp-container";
 
-    if (timestamp) {
       const timestampButton = document.createElement("button");
       timestampButton.className = "timestamp clickable-timestamp";
 
@@ -292,17 +358,30 @@ function createFloatingUI() {
       });
 
       timestampContainer.appendChild(timestampButton);
+
+      const deleteButton = document.createElement("span");
+      deleteButton.className = "delete-button material-symbols-outlined";
+      deleteButton.textContent = "delete";
+      deleteButton.addEventListener("click", () => {
+        contentDiv.remove();
+      });
+      timestampContainer.appendChild(deleteButton);
+
+      contentDiv.appendChild(timestampContainer);
+    } else {
+      // Always add delete button even without timestamp
+      const deleteContainer = document.createElement("div");
+      deleteContainer.className = "timestamp-container";
+
+      const deleteButton = document.createElement("span");
+      deleteButton.className = "delete-button material-symbols-outlined";
+      deleteButton.textContent = "delete";
+      deleteButton.addEventListener("click", () => {
+        contentDiv.remove();
+      });
+      deleteContainer.appendChild(deleteButton);
+      contentDiv.appendChild(deleteContainer);
     }
-
-    const deleteButton = document.createElement("span");
-    deleteButton.className = "delete-button material-symbols-outlined";
-    deleteButton.textContent = "delete";
-    deleteButton.addEventListener("click", () => {
-      contentDiv.remove();
-    });
-    timestampContainer.appendChild(deleteButton);
-
-    contentDiv.appendChild(timestampContainer);
 
     if (pin) {
       contentDiv.classList.add("pinned");
@@ -633,11 +712,8 @@ function createFloatingUI() {
 
   makeDraggable(floatingDiv);
   document.body.appendChild(floatingDiv);
-
-  menuIconsRight.querySelector(".close")?.addEventListener("click", () => {
-    floatingDiv.remove();
-  });
 }
+
 function makeDraggable(element: HTMLDivElement) {
   let pos1 = 0,
     pos2 = 0,
