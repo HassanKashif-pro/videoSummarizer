@@ -17,24 +17,19 @@ try {
   }
   console.log("🔄 Initializing Gemini AI...");
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+  // Initialize with beta API version for Gemini 1.5
   geminiModel = genAI.getGenerativeModel({
-    model: "gemini-pro",
+    model: "gemini-1.5-pro",
     apiVersion: "v1beta",
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 2048,
-    },
   });
 
   // Test the connection immediately
   (async () => {
     try {
       console.log("🔄 Testing Gemini connection...");
-      const result = await geminiModel.generateContent({
-        contents: [
-          { role: "user", parts: [{ text: "Hello, are you working?" }] },
-        ],
-      });
+      const prompt = "Hello! Please confirm if you're working.";
+      const result = await geminiModel.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
       console.log("✅ Gemini test successful:", text);
@@ -155,10 +150,7 @@ app.post("/summarize", async (req: any, res: any) => {
     }
 
     const prompt = `Please provide a concise summary of this video transcript in 3-4 sentences: ${processedTranscript}`;
-
-    const result = await geminiModel.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
+    const result = await geminiModel.generateContent(prompt);
     console.log("✅ Received response from Gemini");
 
     const response = await result.response;
