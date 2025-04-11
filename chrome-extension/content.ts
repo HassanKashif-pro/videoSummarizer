@@ -145,7 +145,7 @@ function createFloatingUI() {
 
   const magicIcon = document.createElement("span");
   magicIcon.className = "material-symbols-outlined icon book_4_spark";
-  magicIcon.textContent = "book_4_spark";
+  magicIcon.textContent = "book_4";
 
   const summarizeIcon = document.createElement("span");
   summarizeIcon.className = "material-symbols-outlined icon summarize";

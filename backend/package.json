@@ -21,7 +21,8 @@
     "googleapis": "^148.0.0",
     "openai": "^4.91.1",
     "youtube-transcript": "^1.2.1",
-    "youtube-transcript-api": "^1.1.2"
+    "youtube-transcript-api": "^1.1.2",
+    "https-proxy-agent": "^7.0.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
