@@ -1,0 +1,438 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: #213547;
+  background-color: #f5f5f5;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  height: 100vh; /* Ensure body takes full viewport height */
+}
+
+h1 {
+  font-size: 2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+button:hover {
+  border-color: #646cff;
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #242424;
+  }
+  a:hover {
+    color: #535bf2;
+  }
+  button {
+    background-color: #1a1a1a;
+  }
+}
+
+/* App Container for the entire layout */
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100vh; /* Already set, but confirming */
+  font-family: Arial, sans-serif;
+}
+
+/* Sidebar Container */
+.sidebar-container {
+  position: relative;
+  height: 100%; /* Ensure the container takes the full height of app-container */
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  position: fixed;
+  top: 16px;
+  padding: 8px 16px;
+  background-color: #ddd;
+  color: #333;
+  border-radius: 4px;
+  z-index: 10;
+  transition: left 0.3s ease;
+}
+
+.sidebar-toggle-open {
+  left: 256px;
+}
+
+.sidebar-toggle-closed {
+  left: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar-toggle {
+    background-color: #4a4a4a;
+    color: #fff;
+  }
+}
+
+/* Sidebar Styles */
+.sidebar {
+  width: 0;
+  height: 100%; /* Ensure sidebar takes the full height of its parent */
+  background-color: #ffffff;
+  padding: 0;
+  overflow-y: auto;
+  border-right: 1px solid #ddd;
+  transition: all 0.3s ease;
+  box-sizing: border-box; /* Ensure padding doesn't affect the height */
+}
+
+.sidebar-open {
+  width: 256px;
+  padding: 20px;
+}
+
+.sidebar-closed {
+  width: 0;
+  padding: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar {
+    background-color: #2a2a2a;
+    border-right: 1px solid #444;
+  }
+}
+
+.sidebar h1 {
+  font-size: 1.5em;
+  margin-bottom: 20px;
+  text-align: left;
+  color: #333;
+}
+
+.sidebar h2 {
+  font-size: 1em;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar li {
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  color: #333;
+}
+
+.sidebar li:hover {
+  background-color: #f0f0f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar h1 {
+    color: #fff;
+  }
+  .sidebar h2 {
+    color: #aaa;
+  }
+  .sidebar li {
+    color: #fff;
+  }
+  .sidebar li:hover {
+    background-color: #3a3a3a;
+  }
+}
+
+/* Add Notebook Form */
+.add-notebook-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-notebook-form input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .add-notebook-form input {
+    border: 1px solid #444;
+    background-color: #333;
+    color: #fff;
+  }
+}
+
+.add-notebook-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.add-notebook-buttons button:first-child {
+  background-color: #f61818;
+  color: #fff;
+  border: none;
+}
+
+.add-notebook-buttons button:first-child:hover {
+  background-color: #e01414;
+  border-color: transparent;
+}
+
+.add-notebook-buttons button:last-child {
+  background-color: #ccc;
+  color: #333;
+  border: none;
+}
+
+.add-notebook-buttons button:last-child:hover {
+  background-color: #bbb;
+  border-color: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .add-notebook-buttons button:last-child {
+    background-color: #666;
+    color: #fff;
+  }
+  .add-notebook-buttons button:last-child:hover {
+    background-color: #555;
+  }
+}
+
+.add-notebook-link {
+  background: none;
+  border: none;
+  color: #f61818;
+  padding: 0;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.add-notebook-link:hover {
+  text-decoration: underline;
+  border: none;
+}
+
+/* Main Content Styles */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.main-content h1 {
+  text-align: left;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .main-content h1 {
+    color: #fff;
+  }
+}
+
+.main-content h3 {
+  font-size: 1em;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .main-content h3 {
+    color: #aaa;
+  }
+}
+
+.main-content ul {
+  list-style: none;
+  padding: 0;
+}
+
+.main-content .note-item {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+@media (prefers-color-scheme: dark) {
+  .main-content .note-item {
+    border-bottom: 1px solid #444;
+  }
+}
+
+.main-content .note-title {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #333;
+}
+
+.main-content .note-content {
+  font-size: 0.8em;
+  color: #666;
+}
+
+.main-content .note-timestamp {
+  font-size: 0.7em;
+  color: #888;
+}
+
+@media (prefers-color-scheme: dark) {
+  .main-content .note-title {
+    color: #fff;
+  }
+  .main-content .note-content {
+    color: #ccc;
+  }
+  .main-content .note-timestamp {
+    color: #888;
+  }
+}
+
+/* Input Container */
+.input-container {
+  margin-bottom: 20px;
+}
+
+.url-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  box-sizing: border-box;
+  background-color: #fff;
+  color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .url-input {
+    border: 1px solid #444;
+    background-color: #333;
+    color: #fff;
+  }
+}
+
+.url-input:focus {
+  outline: none;
+  border-color: #f61818;
+  box-shadow: 0 0 0 2px rgba(246, 24, 24, 0.1);
+}
+
+/* Notes Panel Styles */
+.notes-panel {
+  width: 25%;
+  background-color: #ffffff;
+  padding: 20px;
+  border-left: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notes-panel {
+    background-color: #2a2a2a;
+    border-left: 1px solid #444;
+  }
+}
+
+.notes-panel h2 {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.notes-panel select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notes-panel h2 {
+    color: #fff;
+  }
+  .notes-panel select {
+    border: 1px solid #444;
+    background-color: #333;
+    color: #fff;
+  }
+}
+
+.notes-panel textarea {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #333;
+  resize: none;
+  margin-bottom: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notes-panel textarea {
+    border: 1px solid #444;
+    background-color: #333;
+    color: #fff;
+  }
+}
+
+.notes-panel button {
+  background-color: #f61818;
+  color: #fff;
+  border: none;
+}
+
+.notes-panel button:hover {
+  background-color: #e01414;
+  border-color: transparent;
+}
