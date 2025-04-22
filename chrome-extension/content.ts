@@ -231,20 +231,26 @@ function createFloatingUI() {
           if (contentArea.contentEditable === "false") {
             contentArea.contentEditable = "true";
             contentArea.focus();
-            contentArea.addEventListener("keydown", stopPropagation);
-            contentArea.addEventListener("keypress", stopPropagation);
+            contentArea.addEventListener("keydown", (e: KeyboardEvent) => {
+              e.stopPropagation();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                contentArea.blur();
+              }
+            });
+            contentArea.addEventListener("keypress", (e: KeyboardEvent) => {
+              e.stopPropagation();
+            });
+            contentArea.addEventListener("keyup", (e: KeyboardEvent) => {
+              e.stopPropagation();
+            });
           }
         });
         contentArea.addEventListener("blur", () => {
           contentArea.contentEditable = "false";
           contentArea.removeEventListener("keydown", stopPropagation);
           contentArea.removeEventListener("keypress", stopPropagation);
-        });
-        contentArea.addEventListener("keydown", (event: KeyboardEvent) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            contentArea.blur();
-          }
+          contentArea.removeEventListener("keyup", stopPropagation);
         });
         break;
       case "image":
@@ -401,46 +407,6 @@ function createFloatingUI() {
     }
   }
 
-  function pinTimestamp(videoElement: HTMLVideoElement) {
-    const mainBody = document.querySelector(".main_body");
-    if (!mainBody) return;
-
-    const currentTime = formatTime(videoElement.currentTime);
-
-    const pinnedTimestampDiv = document.createElement("div");
-    pinnedTimestampDiv.className = "pinned-timestamp";
-
-    // Create a play icon (if you have one)
-    const playIcon = document.createElement("span");
-    playIcon.className = "material-symbols-outlined"; // Or your icon class
-    playIcon.textContent = "play_arrow"; // Or your icon text
-
-    // Create a span for the timestamp text
-    const timestampText = document.createElement("span");
-    timestampText.textContent = `Pinned Time: ${currentTime}`;
-
-    // Append the icon and text to the pinnedTimestampDiv
-    pinnedTimestampDiv.appendChild(playIcon);
-    pinnedTimestampDiv.appendChild(timestampText);
-
-    // Add event listener to jump to timestamp when clicked
-    pinnedTimestampDiv.addEventListener("click", () => {
-      const timeInSeconds = parseTimestamp(currentTime); // Parse the timestamp
-      if (videoElement) {
-        videoElement.currentTime = timeInSeconds;
-      }
-    });
-
-    // Remove any existing pinned timestamp
-    const existingPinnedTimestamp = document.querySelector(".pinned-timestamp");
-    if (existingPinnedTimestamp) {
-      existingPinnedTimestamp.remove();
-    }
-
-    // Insert the new pinned timestamp at the top
-    mainBody.insertBefore(pinnedTimestampDiv, mainBody.firstChild);
-  }
-
   function stopPropagation(event: KeyboardEvent) {
     event.stopPropagation();
   }
@@ -468,19 +434,23 @@ function createFloatingUI() {
         }
       });
 
-      // Key Events Handling
       textInput.addEventListener("keydown", (event: KeyboardEvent) => {
         event.stopPropagation();
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
           textInput?.blur();
         }
+
         if (event.key === "Escape") {
           textInput?.blur();
         }
       });
 
       textInput.addEventListener("keypress", (event: KeyboardEvent) => {
+        event.stopPropagation();
+      });
+
+      textInput.addEventListener("keyup", (event: KeyboardEvent) => {
         event.stopPropagation();
       });
 
@@ -547,20 +517,75 @@ function createFloatingUI() {
       );
     }
   });
-  formContainer.appendChild(screenshotIcon);
 
-  const pinIcon = document.createElement("span");
-  pinIcon.className = "material-symbols-outlined icon pin";
-  pinIcon.textContent = "push_pin";
-  pinIcon.title = "Pin current timestamp";
-  pinIcon.addEventListener("click", () => {
+  const saveIcon = document.createElement("span");
+  saveIcon.className = "material-symbols-outlined icon save";
+  saveIcon.textContent = "save";
+  saveIcon.title = "Save note";
+  saveIcon.style.display = "inline-flex";
+  saveIcon.addEventListener("click", () => {
     const video = document.querySelector("video");
-    if (video) {
-      pinTimestamp(video);
+    const textEditor = document.querySelector(".text-editor") as HTMLElement;
+    if (
+      video &&
+      textEditor &&
+      textEditor.textContent &&
+      textEditor.textContent !== "Add a note"
+    ) {
+      saveNoteToBackend(textEditor.textContent, formatTime(video.currentTime));
     }
   });
 
-  formContainer.appendChild(pinIcon);
+  formContainer.appendChild(screenshotIcon);
+  formContainer.appendChild(saveIcon);
+
+  async function saveNoteToBackend(content: string, timestamp: string) {
+    try {
+      const response = await fetch("http://localhost:5000/api/videos/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoId: new URLSearchParams(window.location.search).get("v"),
+          videoTitle: document.title.replace(" - YouTube", ""),
+          videoUrl: window.location.href,
+          content: content.trim(),
+          contentType: "text",
+          category: "Uncategorized",
+          isPinned: false,
+          timestamp,
+        }),
+      });
+
+      if (response.ok) {
+        const textEditor = document.querySelector(
+          ".text-editor"
+        ) as HTMLElement;
+        if (textEditor) {
+          textEditor.textContent = "Add a note";
+          textEditor.style.color = "#999";
+        }
+        showNotification("Note saved successfully!");
+      } else {
+        const errorData = await response.json();
+        showNotification(
+          `Failed to save note: ${errorData.error || "Unknown error"}`
+        );
+      }
+    } catch (error) {
+      console.error("Error saving note:", error);
+      showNotification("Error saving note. Please try again.");
+    }
+  }
+
+  function showNotification(message: string) {
+    const notification = document.createElement("div");
+    notification.className = "floating-notification";
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+  }
 
   const inputWrapper = document.createElement("div");
   inputWrapper.className = "input-wrapper";
@@ -632,19 +657,33 @@ function createFloatingUI() {
       textEditor.textContent = "";
       textEditor.style.color = "#000";
     }
+
     formattingToolbar.style.display = "flex";
     screenshotIcon.style.display = "none";
-    pinIcon.style.display = "none";
     inputWrapper.style.width = "100%";
-    if (document.activeElement !== textEditor) {
-      (document.activeElement as HTMLElement)?.blur();
+
+    // 🔸 Forcefully blur other active elements
+    const active = document.activeElement as HTMLElement;
+    if (active && active !== textEditor) {
+      active.blur();
     }
+
+    // 🔸 Refocus after blur (ensures correct state)
+    setTimeout(() => {
+      textEditor.focus();
+    }, 0);
   });
 
   textEditor.addEventListener("keydown", (e: KeyboardEvent) => {
+    // Stop event propagation to prevent YouTube video controls
+
     e.stopPropagation();
+
+    const active = document.activeElement;
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+
       if (textEditor.textContent?.trim() !== "") {
         const currentTime = formatTime(
           document.querySelector("video")?.currentTime || 0
@@ -654,12 +693,19 @@ function createFloatingUI() {
         textEditor.style.color = "#999";
       }
     }
+
     if (e.key === "Escape") {
       textEditor.blur();
     }
   });
 
   textEditor.addEventListener("keypress", (e: KeyboardEvent) => {
+    // Stop event propagation to prevent YouTube video controls
+    e.stopPropagation();
+  });
+
+  textEditor.addEventListener("keyup", (e: KeyboardEvent) => {
+    // Stop event propagation to prevent YouTube video controls
     e.stopPropagation();
   });
 
@@ -670,7 +716,6 @@ function createFloatingUI() {
     }
     formattingToolbar.style.display = "none";
     screenshotIcon.style.display = "inline-flex";
-    pinIcon.style.display = "inline-flex";
     inputWrapper.style.width = "";
     document
       .querySelectorAll(".formatting_toolbar button.highlighted")
@@ -721,6 +766,16 @@ function makeDraggable(element: HTMLDivElement) {
     pos4 = 0;
 
   element.onmousedown = function (e: MouseEvent) {
+    // 🧠 Ignore drag if clicked on input/textarea/contentEditable
+    const target = e.target as HTMLElement;
+    if (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable
+    ) {
+      return;
+    }
+
     e.preventDefault();
     pos3 = e.clientX;
     pos4 = e.clientY;

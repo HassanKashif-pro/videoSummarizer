@@ -149,7 +149,8 @@
   width: 100% !important;
 }
 
-.material-symbols-outlined.icon.book_4_spark {
+.material-symbols-outlined.icon.book_4_spark,
+.material-symbols-outlined.icon.save {
   font-size: 20px;
   color: #666;
   border: 1px solid #ccc;
@@ -419,9 +420,18 @@
 
 .content-area {
   position: relative;
+  user-select: text;
+  -webkit-user-select: text;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+
+.content-area:focus {
+  outline: none;
+  box-shadow: none;
+  border: none;
 }
 
 .content-area img {
@@ -529,6 +539,7 @@
 .timestamp-container {
   display: flex;
   align-items: center;
+  color: #f61818;
   gap: 8px;
   margin-top: 12px;
 }
@@ -609,4 +620,55 @@
 /* Optional: Add hover effect */
 .pinned-timestamp:hover {
   background-color: #e0e0e0;
+}
+
+.save-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  transition: background-color 0.3s;
+}
+
+.save-button:hover {
+  background-color: #45a049;
+}
+
+.success-message {
+  background-color: #4caf50;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin-top: 8px;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+.error-message {
+  background-color: #f44336;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin-top: 8px;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
