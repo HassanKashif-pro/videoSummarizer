@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar.tsx";
+import axios from "axios";
 
 interface Note {
+  category: string;
   videoId: string;
   videoTitle: string;
+  videoUrl: string;
   content: string;
   timestamp: string;
+  isPinned: boolean;
 }
 
 interface Category {
@@ -22,47 +26,75 @@ function App() {
     { name: "Uncategorized", notes: [] },
   ]);
   const [selectedCategory, setSelectedCategory] = useState("Entertainment");
-  const [videoTitle, setVideoTitle] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [newNote, setNewNote] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load saved notes from localStorage
+  // Load saved notes from backend
   useEffect(() => {
-    const savedCategories = localStorage.getItem("youtubeNotes");
-    if (savedCategories) {
-      setCategories(JSON.parse(savedCategories));
-    }
+    const fetchNotes = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:5000/api/videos/notes"
+        );
+        if (response.data) {
+          // Group notes by category
+          const groupedNotes = response.data.reduce(
+            (acc: Category[], note: Note) => {
+              const category = acc.find(
+                (cat) => cat.name === note.category
+              ) || { name: note.category, notes: [] };
+              category.notes.push(note);
+              return acc;
+            },
+            categories
+          );
+          setCategories(groupedNotes);
+        }
+      } catch (error) {
+        console.error("Error fetching notes:", error);
+      }
+    };
+
+    fetchNotes();
   }, []);
 
-  // Save notes to localStorage whenever categories change
-  useEffect(() => {
-    localStorage.setItem("youtubeNotes", JSON.stringify(categories));
-  }, [categories]);
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !videoUrl.trim()) return;
 
-  const handleAddNote = () => {
-    if (!newNote.trim() || !videoTitle.trim()) return;
+    try {
+      setIsLoading(true);
+      const response = await axios.post(
+        "http://localhost:5000/api/videos/save",
+        {
+          videoUrl,
+          content: newNote,
+          category: selectedCategory,
+          isPinned: false,
+        }
+      );
 
-    const updatedCategories = categories.map((category) => {
-      if (category.name === selectedCategory) {
-        return {
-          ...category,
-          notes: [
-            ...category.notes,
-            {
-              videoId: `vid_${Date.now()}`,
-              videoTitle,
-              content: newNote,
-              timestamp: new Date().toISOString(),
-            },
-          ],
-        };
+      if (response.data) {
+        const updatedCategories = categories.map((category) => {
+          if (category.name === selectedCategory) {
+            return {
+              ...category,
+              notes: [...category.notes, response.data],
+            };
+          }
+          return category;
+        });
+
+        setCategories(updatedCategories);
+        setNewNote("");
+        setVideoUrl("");
       }
-      return category;
-    });
-
-    setCategories(updatedCategories);
-    setNewNote("");
-    setVideoTitle("");
+    } catch (error) {
+      console.error("Error saving note:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddCategory = (newCategoryName: string) => {
@@ -87,9 +119,9 @@ function App() {
         <div className="input-container">
           <input
             type="text"
-            placeholder="Enter Video Title"
-            value={videoTitle}
-            onChange={(e) => setVideoTitle(e.target.value)}
+            placeholder="Enter YouTube URL"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
             className="url-input"
           />
         </div>
@@ -103,6 +135,13 @@ function App() {
               ?.notes.map((note, index) => (
                 <li key={index} className="note-item">
                   <p className="note-title">{note.videoTitle}</p>
+                  <a
+                    href={note.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Watch Video
+                  </a>
                   <p className="note-content">{note.content}</p>
                   <p className="note-timestamp">
                     {new Date(note.timestamp).toLocaleString()}
@@ -131,7 +170,9 @@ function App() {
           onChange={(e) => setNewNote(e.target.value)}
           placeholder="Add a note..."
         />
-        <button onClick={handleAddNote}>Add Note</button>
+        <button onClick={handleAddNote} disabled={isLoading}>
+          {isLoading ? "Saving..." : "Add Note"}
+        </button>
       </div>
     </div>
   );
