@@ -19,10 +19,12 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^148.0.0",
+    "https-proxy-agent": "^7.0.2",
+    "mongodb": "^6.15.0",
+    "mongoose": "^8.13.2",
     "openai": "^4.91.1",
     "youtube-transcript": "^1.2.1",
-    "youtube-transcript-api": "^1.1.2",
-    "https-proxy-agent": "^7.0.2"
+    "youtube-transcript-api": "^1.1.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
