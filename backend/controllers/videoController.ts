@@ -1,9 +1,12 @@
 import axios from "axios";
 import { Request, Response } from "express";
 import dotenv from "dotenv";
-import { getTranscript } from "youtube-transcript-api";
+import { getTranscript, TranscriptSegment } from "youtube-transcript-api";
+import { VideoNote } from "../services/database";
 
 dotenv.config(); // Load environment variables
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 // ✅ Function to extract Video ID from YouTube URLs
 const extractVideoId = (url: string): string | null => {
@@ -19,7 +22,7 @@ export const fetchTranscript = async (videoId: string): Promise<string> => {
     console.log("📥 Fetching transcript for video ID:", videoId);
 
     // ✅ Attempt to fetch the transcript (handle errors)
-    const captions = await getTranscript(videoId).catch((err) => {
+    const captions = await getTranscript(videoId).catch((err: Error) => {
       console.error("⚠️ Transcript fetch error:", err.message);
       throw new Error(
         "⚠️ Unable to fetch transcript. Video may be restricted."
@@ -33,12 +36,17 @@ export const fetchTranscript = async (videoId: string): Promise<string> => {
     }
 
     // ✅ Convert captions into a single transcript string
-    const transcript = captions.map((caption) => caption.text).join(" ");
+    const transcript = captions
+      .map((caption: { text: string }) => caption.text)
+      .join(" ");
     console.log("✅ Final transcript:", transcript);
 
     return transcript;
   } catch (error: any) {
-    console.error("❌ Error fetching transcript:", error.message);
+    console.error(
+      "❌ Error fetching transcript:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     throw new Error(
       "❌ Failed to fetch transcript. Video might have no captions."
     );
@@ -113,5 +121,76 @@ export const getVideoSummary = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("❌ Error:", error.message);
     res.status(500).json({ error: "Failed to fetch transcript." });
+  }
+};
+
+// Fetch video information from YouTube API
+const fetchVideoInfo = async (videoId: string) => {
+  try {
+    const response = await axios.get(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`
+    );
+
+    if (response.data.items && response.data.items.length > 0) {
+      return {
+        title: response.data.items[0].snippet.title,
+        description: response.data.items[0].snippet.description,
+        thumbnail: response.data.items[0].snippet.thumbnails.default.url,
+      };
+    }
+    throw new Error("Video not found");
+  } catch (error) {
+    console.error("Error fetching video info:", error);
+    throw error;
+  }
+};
+
+// Save video note to database
+export const saveVideoNote = async (req: Request, res: Response) => {
+  try {
+    const { videoUrl, content, category, isPinned } = req.body;
+
+    if (!videoUrl) {
+      return res.status(400).json({ error: "Missing video URL" });
+    }
+
+    const videoId = extractVideoId(videoUrl);
+    if (!videoId) {
+      return res.status(400).json({ error: "Invalid YouTube URL" });
+    }
+
+    // Fetch video information
+    const videoInfo = await fetchVideoInfo(videoId);
+
+    // Create new note
+    const note = new VideoNote({
+      videoId,
+      videoTitle: videoInfo.title,
+      videoUrl,
+      contentType: "text",
+      content,
+      category,
+      isPinned,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Save to database
+    await note.save();
+
+    res.status(201).json(note);
+  } catch (error) {
+    console.error("Error saving video note:", error);
+    res.status(500).json({ error: "Failed to save video note" });
+  }
+};
+
+// Get all video notes
+export const getVideoNotes = async (req: Request, res: Response) => {
+  try {
+    const notes = await VideoNote.find().sort({ timestamp: -1 });
+    res.json(notes);
+  } catch (error) {
+    console.error("Error fetching video notes:", error);
+    res.status(500).json({ error: "Failed to fetch video notes" });
   }
 };

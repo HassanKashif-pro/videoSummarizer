@@ -12,11 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVideoSummary = exports.fetchTranscript = void 0;
+exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
 const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const youtube_transcript_api_1 = require("youtube-transcript-api");
+const database_1 = require("../services/database");
 dotenv_1.default.config(); // Load environment variables
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 // ✅ Function to extract Video ID from YouTube URLs
 const extractVideoId = (url) => {
     const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -37,12 +39,14 @@ const fetchTranscript = (videoId) => __awaiter(void 0, void 0, void 0, function*
             throw new Error("⚠️ No captions found for this video.");
         }
         // ✅ Convert captions into a single transcript string
-        const transcript = captions.map((caption) => caption.text).join(" ");
+        const transcript = captions
+            .map((caption) => caption.text)
+            .join(" ");
         console.log("✅ Final transcript:", transcript);
         return transcript;
     }
     catch (error) {
-        console.error("❌ Error fetching transcript:", error.message);
+        console.error("❌ Error fetching transcript:", error instanceof Error ? error.message : "Unknown error");
         throw new Error("❌ Failed to fetch transcript. Video might have no captions.");
     }
 });
@@ -103,3 +107,67 @@ const getVideoSummary = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.getVideoSummary = getVideoSummary;
+// Fetch video information from YouTube API
+const fetchVideoInfo = (videoId) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const response = yield axios_1.default.get(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`);
+        if (response.data.items && response.data.items.length > 0) {
+            return {
+                title: response.data.items[0].snippet.title,
+                description: response.data.items[0].snippet.description,
+                thumbnail: response.data.items[0].snippet.thumbnails.default.url,
+            };
+        }
+        throw new Error("Video not found");
+    }
+    catch (error) {
+        console.error("Error fetching video info:", error);
+        throw error;
+    }
+});
+// Save video note to database
+const saveVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { videoUrl, content, category, isPinned } = req.body;
+        if (!videoUrl) {
+            return res.status(400).json({ error: "Missing video URL" });
+        }
+        const videoId = extractVideoId(videoUrl);
+        if (!videoId) {
+            return res.status(400).json({ error: "Invalid YouTube URL" });
+        }
+        // Fetch video information
+        const videoInfo = yield fetchVideoInfo(videoId);
+        // Create new note
+        const note = new database_1.VideoNote({
+            videoId,
+            videoTitle: videoInfo.title,
+            videoUrl,
+            contentType: "text",
+            content,
+            category,
+            isPinned,
+            timestamp: new Date().toISOString(),
+        });
+        // Save to database
+        yield note.save();
+        res.status(201).json(note);
+    }
+    catch (error) {
+        console.error("Error saving video note:", error);
+        res.status(500).json({ error: "Failed to save video note" });
+    }
+});
+exports.saveVideoNote = saveVideoNote;
+// Get all video notes
+const getVideoNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const notes = yield database_1.VideoNote.find().sort({ timestamp: -1 });
+        res.json(notes);
+    }
+    catch (error) {
+        console.error("Error fetching video notes:", error);
+        res.status(500).json({ error: "Failed to fetch video notes" });
+    }
+});
+exports.getVideoNotes = getVideoNotes;

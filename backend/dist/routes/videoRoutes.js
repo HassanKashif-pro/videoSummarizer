@@ -24,4 +24,13 @@ router.post("/summarize", (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.status(500).json({ error: "Internal Server Error" });
     }
 }));
+router.post("/save", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield (0, videoController_1.saveVideoNote)(req, res);
+    }
+    catch (error) {
+        console.error("Error in video save route:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+}));
 exports.default = router;

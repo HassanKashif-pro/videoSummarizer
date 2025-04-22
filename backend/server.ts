@@ -9,6 +9,11 @@ const fs = require("fs");
 const path = require("path");
 const https = require("https");
 const HttpsProxyAgent = require("https-proxy-agent");
+const { connectDB } = require("./services/database");
+const {
+  saveVideoNote,
+  getVideoNotes,
+} = require("./controllers/videoController");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -150,6 +155,9 @@ try {
   }
   process.exit(1);
 }
+
+// Initialize database connection
+connectDB().catch(console.error);
 
 app.use(cors({ origin: "*" })); // ⚠️ Change this in production
 app.use(express.json());
@@ -1247,3 +1255,7 @@ app.post("/api/rotate-proxy", (req: any, res: any) => {
     newProxy: PROXY_LIST[currentProxyIndex],
   });
 });
+
+// Routes for video notes
+app.post("/api/videos/save", saveVideoNote);
+app.get("/api/videos/notes", getVideoNotes);
