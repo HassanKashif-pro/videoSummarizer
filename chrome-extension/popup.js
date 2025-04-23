@@ -36,21 +36,37 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
     // Function to send note data to the website
-    const sendNoteToWebsite = (payload) => {
-        chrome.tabs.create({ url: "https://app.videonotebook.com/notebooks" }, (tab) => {
-            chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
-                if (tabId === tab.id && changeInfo.status === "complete") {
-                    chrome.tabs.sendMessage(tabId, { action: "addNote", noteData: payload }, (response) => {
-                        if (response && response.success) {
-                            noteInput.value = "";
-                            screenshotInput.value = ""; // Clear file input
-                            alert("Note saved successfully!");
-                        }
-                    });
-                    chrome.tabs.onUpdated.removeListener(listener);
-                }
+    const sendNoteToWebsite = async (payload) => {
+        try {
+            const response = await fetch("http://localhost:5000/api/videos/save", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    videoUrl: payload.videoUrl,
+                    content: payload.note,
+                    category: payload.category,
+                    isPinned: false,
+                    videoTitle: payload.videoTitle,
+                    videoId: payload.videoId,
+                    screenshot: payload.screenshot,
+                }),
             });
-        });
+            if (response.ok) {
+                noteInput.value = "";
+                screenshotInput.value = ""; // Clear file input
+                alert("Note saved successfully!");
+            }
+            else {
+                const errorData = await response.json();
+                alert(`Failed to save note: ${errorData.error || "Unknown error"}`);
+            }
+        }
+        catch (error) {
+            console.error("Error saving note:", error);
+            alert("Error saving note. Please try again.");
+        }
     };
     // Handle saving the note
     const handleSaveNote = async (noteContent, screenshot) => {
