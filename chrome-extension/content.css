@@ -172,6 +172,30 @@
   background-color: #f8f8f8;
   color: #60bf9c;
 }
+.material-symbols-outlined.icon.save:hover {
+  background-color: #f8f8f8;
+  color: #c91306;
+}
+
+.material-symbols-outlined.icon.save.save-success {
+  animation: saveSuccess 1s ease;
+}
+
+@keyframes saveSuccess {
+  0% {
+    transform: scale(1);
+    color: #c91306;
+  }
+  50% {
+    transform: scale(1.2);
+    color: #4caf50;
+  }
+  100% {
+    transform: scale(1);
+    color: inherit;
+  }
+}
+
 .material-symbols-outlined.icon.summarize:hover {
   background-color: #f0f0f0;
   color: #f61818;
@@ -669,6 +693,39 @@
     opacity: 1;
   }
   100% {
+    opacity: 0;
+  }
+}
+
+.floating-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
     opacity: 0;
   }
 }

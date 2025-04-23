@@ -523,16 +523,32 @@ function createFloatingUI() {
   saveIcon.textContent = "save";
   saveIcon.title = "Save note";
   saveIcon.style.display = "inline-flex";
-  saveIcon.addEventListener("click", () => {
-    const video = document.querySelector("video");
-    const textEditor = document.querySelector(".text-editor") as HTMLElement;
-    if (
-      video &&
-      textEditor &&
-      textEditor.textContent &&
-      textEditor.textContent !== "Add a note"
-    ) {
-      saveNoteToBackend(textEditor.textContent, formatTime(video.currentTime));
+  saveIcon.addEventListener("click", async () => {
+    const mainBody = document.querySelector(".main_body");
+    if (!mainBody) return;
+
+    // Get all content items from the main body
+    const contentItems = mainBody.querySelectorAll(".content-item");
+    if (contentItems.length === 0) {
+      showNotification("No content to save!");
+      return;
+    }
+
+    // Collect all content
+    let combinedContent = "";
+    contentItems.forEach((item) => {
+      const contentArea = item.querySelector(".content-area");
+      if (contentArea) {
+        combinedContent += contentArea.innerHTML + "\n\n";
+      }
+    });
+
+    if (combinedContent.trim()) {
+      const video = document.querySelector("video");
+      const currentTime = video ? formatTime(video.currentTime) : "0:00";
+      await saveNoteToBackend(combinedContent, currentTime);
+    } else {
+      showNotification("No content to save!");
     }
   });
 
@@ -541,41 +557,72 @@ function createFloatingUI() {
 
   async function saveNoteToBackend(content: string, timestamp: string) {
     try {
+      const videoId = new URLSearchParams(window.location.search).get("v");
+      if (!videoId) {
+        showNotification("No video ID found!");
+        return;
+      }
+
+      // Add visual feedback for saving
+      const saveIcon = document.querySelector(
+        ".material-symbols-outlined.icon.save"
+      ) as HTMLElement;
+      if (saveIcon) {
+        saveIcon.textContent = "hourglass_empty";
+        saveIcon.style.color = "#c91306";
+      }
+
       const response = await fetch("http://localhost:5000/api/videos/save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          videoId: new URLSearchParams(window.location.search).get("v"),
+          videoId: videoId,
           videoTitle: document.title.replace(" - YouTube", ""),
           videoUrl: window.location.href,
           content: content.trim(),
           contentType: "text",
           category: "Uncategorized",
           isPinned: false,
-          timestamp,
+          timestamp: timestamp,
         }),
       });
 
       if (response.ok) {
-        const textEditor = document.querySelector(
-          ".text-editor"
-        ) as HTMLElement;
-        if (textEditor) {
-          textEditor.textContent = "Add a note";
-          textEditor.style.color = "#999";
-        }
         showNotification("Note saved successfully!");
+        // Reset save icon
+        if (saveIcon) {
+          saveIcon.textContent = "save";
+          saveIcon.style.color = "";
+          // Add a temporary success animation
+          saveIcon.classList.add("save-success");
+          setTimeout(() => {
+            saveIcon.classList.remove("save-success");
+          }, 1000);
+        }
       } else {
         const errorData = await response.json();
         showNotification(
           `Failed to save note: ${errorData.error || "Unknown error"}`
         );
+        // Reset save icon on error
+        if (saveIcon) {
+          saveIcon.textContent = "save";
+          saveIcon.style.color = "";
+        }
       }
     } catch (error) {
       console.error("Error saving note:", error);
       showNotification("Error saving note. Please try again.");
+      // Reset save icon on error
+      const saveIcon = document.querySelector(
+        ".material-symbols-outlined.icon.save"
+      ) as HTMLElement;
+      if (saveIcon) {
+        saveIcon.textContent = "save";
+        saveIcon.style.color = "";
+      }
     }
   }
 
