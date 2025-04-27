@@ -100,9 +100,7 @@ function App() {
         onSelectNotebook={setSelectedCategory}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
-        onSelectVideo={function (url: string, title: string): void {
-          throw new Error("Function not implemented.");
-        }}
+        onSelectVideo={handleVideoSelect}
       />
 
       {/* Main Content Area */}

@@ -563,15 +563,6 @@ function createFloatingUI() {
         return;
       }
 
-      // Add visual feedback for saving
-      const saveIcon = document.querySelector(
-        ".material-symbols-outlined.icon.save"
-      ) as HTMLElement;
-      if (saveIcon) {
-        saveIcon.textContent = "hourglass_empty";
-        saveIcon.style.color = "#c91306";
-      }
-
       const response = await fetch("http://localhost:5000/api/videos/save", {
         method: "POST",
         headers: {
@@ -591,38 +582,39 @@ function createFloatingUI() {
 
       if (response.ok) {
         showNotification("Note saved successfully!");
-        // Reset save icon
-        if (saveIcon) {
-          saveIcon.textContent = "save";
-          saveIcon.style.color = "";
-          // Add a temporary success animation
-          saveIcon.classList.add("save-success");
-          setTimeout(() => {
-            saveIcon.classList.remove("save-success");
-          }, 1000);
+        // Clear the main body content
+        const mainBody = document.querySelector(".main_body");
+        if (mainBody) {
+          mainBody.innerHTML = ""; // Clear all content
+          // Add back the top row
+          const topRow = document.createElement("div");
+          topRow.className = "top_row";
+          const magicIcon = document.createElement("span");
+          magicIcon.className = "material-symbols-outlined icon book_4_spark";
+          magicIcon.textContent = "book_4";
+          const summarizeIcon = document.createElement("span");
+          summarizeIcon.className = "material-symbols-outlined icon summarize";
+          summarizeIcon.textContent = "summarize";
+          summarizeIcon.title = "Generate Summary";
+          topRow.appendChild(magicIcon);
+          topRow.appendChild(summarizeIcon);
+          mainBody.appendChild(topRow);
         }
+
+        // Notify the main app to refresh notes
+        window.postMessage(
+          { type: "REFRESH_NOTES", source: "video_summarizer" },
+          "*"
+        );
       } else {
         const errorData = await response.json();
         showNotification(
           `Failed to save note: ${errorData.error || "Unknown error"}`
         );
-        // Reset save icon on error
-        if (saveIcon) {
-          saveIcon.textContent = "save";
-          saveIcon.style.color = "";
-        }
       }
     } catch (error) {
       console.error("Error saving note:", error);
       showNotification("Error saving note. Please try again.");
-      // Reset save icon on error
-      const saveIcon = document.querySelector(
-        ".material-symbols-outlined.icon.save"
-      ) as HTMLElement;
-      if (saveIcon) {
-        saveIcon.textContent = "save";
-        saveIcon.style.color = "";
-      }
     }
   }
 

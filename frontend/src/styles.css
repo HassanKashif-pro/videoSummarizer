@@ -271,6 +271,13 @@ button:focus-visible {
 .note-item {
   padding: 12px 8px;
   border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+}
+
+.note-item:hover {
+  background-color: #f5f5f5;
 }
 
 .note-item:last-child {
@@ -281,6 +288,9 @@ button:focus-visible {
   .note-item {
     border-bottom: 1px solid #444;
   }
+  .note-item:hover {
+    background-color: #3a3a3a;
+  }
 }
 
 .note-title {
@@ -289,27 +299,33 @@ button:focus-visible {
   color: #333;
   display: flex;
   align-items: center;
-  white-space: nowrap; /* Prevent wrapping */
-  overflow: hidden; /* Hide overflow */
-  text-overflow: ellipsis; /* Show "..." */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
 }
 
 .video-icon {
-  width: 18px; /* or 20px, depending how big you want it */
-  height: 18px;
+  width: 24px;
+  height: 24px;
   margin-right: 8px;
-  object-fit: contain; /* keeps image aspect ratio clean */
+  object-fit: contain;
   vertical-align: middle;
   flex-shrink: 0;
+  border-radius: 4px;
 }
 
 .video-title-text {
-  white-space: nowrap; /* Prevent text from wrapping */
-  overflow: hidden; /* Hide overflow */
-  text-overflow: ellipsis; /* Show "..." */
-  font-size: 0.9em; /* Slightly smaller than normal text */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9em;
   font-weight: 500;
-  flex: 1; /* Make text take up remaining space */
+  flex: 1;
+  color: #333;
+  transition: color 0.2s ease;
 }
 
 .note-content {
@@ -324,6 +340,9 @@ button:focus-visible {
 
 @media (prefers-color-scheme: dark) {
   .note-title {
+    color: #fff;
+  }
+  .video-title-text {
     color: #fff;
   }
   .note-content {
