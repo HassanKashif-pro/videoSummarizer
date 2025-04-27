@@ -258,19 +258,18 @@ button:focus-visible {
 .notes-list {
   list-style: none;
   padding: 0 0 0 16px;
-  margin: 0;
-  background-color: #f9f9f9;
+  background-color: #2a2a2a;
   border-radius: 4px;
 }
 
 @media (prefers-color-scheme: dark) {
   .notes-list {
-    background-color: #ffffff;
+    background-color: #2a2a2a;
   }
 }
 
 .note-item {
-  padding: 6px 8px;
+  padding: 12px 8px;
   border-bottom: 1px solid #ddd;
 }
 
@@ -290,13 +289,27 @@ button:focus-visible {
   color: #333;
   display: flex;
   align-items: center;
+  white-space: nowrap; /* Prevent wrapping */
+  overflow: hidden; /* Hide overflow */
+  text-overflow: ellipsis; /* Show "..." */
 }
 
-.note-title::before {
-  content: "▶";
-  color: #ff0000;
-  margin-right: 6px;
-  font-size: 0.75em;
+.video-icon {
+  width: 18px; /* or 20px, depending how big you want it */
+  height: 18px;
+  margin-right: 8px;
+  object-fit: contain; /* keeps image aspect ratio clean */
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.video-title-text {
+  white-space: nowrap; /* Prevent text from wrapping */
+  overflow: hidden; /* Hide overflow */
+  text-overflow: ellipsis; /* Show "..." */
+  font-size: 0.9em; /* Slightly smaller than normal text */
+  font-weight: 500;
+  flex: 1; /* Make text take up remaining space */
 }
 
 .note-content {

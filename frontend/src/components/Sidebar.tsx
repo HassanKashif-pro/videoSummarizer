@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import "../styles.css"; // Import the CSS file
 
 // Load Font Awesome
 const loadFontAwesome = () => {
@@ -12,8 +13,7 @@ const loadFontAwesome = () => {
 interface Note {
   videoId: string;
   videoTitle: string;
-  content: string;
-  timestamp: string;
+  videoUrl: string;
 }
 
 interface Notebook {
@@ -27,6 +27,7 @@ interface SidebarProps {
   onSelectNotebook: (name: string) => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  onSelectVideo: (url: string, title: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -35,18 +36,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectNotebook,
   isOpen,
   setIsOpen,
+  onSelectVideo,
 }) => {
   const [newNotebookName, setNewNotebookName] = useState("");
   const [isAddingNotebook, setIsAddingNotebook] = useState(false);
-  const [expandedNotebook, setExpandedNotebook] = useState<string | null>(
-    "Entertainment"
-  );
+  const [expandedNotebook, setExpandedNotebook] = useState<string | null>(null);
   const [openOptionsNotebook, setOpenOptionsNotebook] = useState<string | null>(
     null
   );
   const optionsMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Load Font Awesome on component mount
+  // Load Font Awesome when component mounts
   useEffect(() => {
     loadFontAwesome();
   }, []);
@@ -75,7 +75,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelectNotebook(notebookName);
   };
 
-  const handleOptionsClick = (notebookName: string) => {
+  const handleOptionsClick = (e: React.MouseEvent, notebookName: string) => {
+    e.stopPropagation();
     setOpenOptionsNotebook(
       openOptionsNotebook === notebookName ? null : notebookName
     );
@@ -83,41 +84,50 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleOptionClick = (option: string, notebookName: string) => {
     console.log(`${option} clicked for notebook: ${notebookName}`);
-    setOpenOptionsNotebook(null); // Close the options menu after clicking an option
+    setOpenOptionsNotebook(null);
   };
 
-  const handleClickOutside = (event: MouseEvent) => {
-    if (
-      optionsMenuRef.current &&
-      !optionsMenuRef.current.contains(event.target as Node)
-    ) {
-      setOpenOptionsNotebook(null);
-    }
-  };
-
+  // Close options menu when clicking outside
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        optionsMenuRef.current &&
+        !optionsMenuRef.current.contains(event.target as Node)
+      ) {
+        setOpenOptionsNotebook(null);
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [optionsMenuRef]);
+  }, []);
 
-  // Define a mapping of category names to Font Awesome icons
   const categoryIcons: { [key: string]: string } = {
     "Science & Technology": "fa-flask",
     Education: "fa-graduation-cap",
     Gaming: "fa-gamepad",
     Entertainment: "fa-film",
-    Uncategorized: "fa-folder-open", // You can choose a different icon
-    // Add more categories and their corresponding icons here
+    Uncategorized: "fa-folder-open",
+  };
+
+  // Initialize expanded notebook
+  useEffect(() => {
+    if (isOpen && notebooks.length > 0 && expandedNotebook === null) {
+      setExpandedNotebook(notebooks[0].name);
+      onSelectNotebook(notebooks[0].name);
+    }
+  }, [isOpen, notebooks, expandedNotebook, onSelectNotebook]);
+
+  const handleVideoClick = (url: string, title: string) => {
+    onSelectVideo(url, title);
   };
 
   return (
     <div className="sidebar-container">
-      {/* Sidebar */}
       <div className={`sidebar ${isOpen ? "sidebar-open" : "sidebar-closed"}`}>
         <div className="sidebar-content">
-          {/* Header with Title and Toggle Icon - Always Visible */}
           <div className="sidebar-header">
             <h1>{isOpen ? "SUMMIFY" : ""}</h1>
             <div className="sidebar-toggle-icon">
@@ -128,13 +138,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Sidebar Content - Only Visible When Open */}
           {isOpen && (
             <>
-              <h2>YouTube Categories</h2>
+              <h2>Videos</h2>
               <ul className="notebook-list">
-                {notebooks.map((notebook, index) => (
-                  <li key={index} className="notebook-item">
+                {notebooks.map((notebook) => (
+                  <li key={notebook.name} className="notebook-item">
                     <div className="notebook-header">
                       <span
                         className="notebook-toggle"
@@ -147,7 +156,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                               : "fa-chevron-right"
                           }`}
                         ></i>
-                        {/* Add the icon here */}
                         {categoryIcons[notebook.name] && (
                           <i
                             className={`fas ${
@@ -160,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <div className="notebook-options">
                         <i
                           className="fas fa-ellipsis-v options-icon"
-                          onClick={() => handleOptionsClick(notebook.name)}
+                          onClick={(e) => handleOptionsClick(e, notebook.name)}
                         ></i>
                         {openOptionsNotebook === notebook.name && (
                           <div
@@ -172,6 +180,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 handleOptionClick("Rename", notebook.name)
                               }
                             >
+                              <i className="fas fa-edit"></i>
                               Rename
                             </button>
                             <button
@@ -179,21 +188,34 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 handleOptionClick("Delete", notebook.name)
                               }
                             >
+                              <i className="fas fa-trash"></i>
                               Delete
                             </button>
                           </div>
                         )}
                       </div>
                     </div>
+
                     {expandedNotebook === notebook.name && (
                       <ul className="notes-list">
-                        {notebook.notes.map((note, noteIndex) => (
-                          <li key={noteIndex} className="note-item">
-                            <p className="note-title">{note.videoTitle}</p>
-                            <p className="note-content">{note.content}</p>
-                            <p className="note-timestamp">
-                              {new Date(note.timestamp).toLocaleString()}
-                            </p>
+                        {notebook.notes.map((note) => (
+                          <li
+                            key={note.videoId}
+                            className="note-item video-title-item"
+                            onClick={() =>
+                              handleVideoClick(note.videoUrl, note.videoTitle)
+                            }
+                          >
+                            <div className="note-title">
+                              <img
+                                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjUxMDUgNi42NjQ5MUMyMi4zODMyIDYuMTk0NjggMjIuMTM1IDUuNzY1OTggMjEuNzkwNSA1LjQyMTUyQzIxLjQ0NjEgNS4wNzcwNiAyMS4wMTc0IDQuODI4ODUgMjAuNTQ3MSA0LjcwMTZDMTguODI1NyA0LjIzMjEyIDExLjg5NzIgNC4yMzIxMiAxMS44OTcyIDQuMjMyMTJDMTEuODk3MiA0LjIzMjEyIDQuOTY4NzUgNC4yNDYzNCAzLjI0NzMgNC43MTU4M0MyLjc3NzA3IDQuODQzMDcgMi4zNDgzOCA1LjA5MTI4IDIuMDAzOTIgNS40MzU3NUMxLjY1OTQ1IDUuNzgwMjEgMS40MTEyNCA2LjIwODkgMS4yODQgNi42NzkxM0MwLjc2MzI5NiA5LjczNzkxIDAuNTYxMjc1IDE0LjM5ODYgMS4yOTgyMyAxNy4zMzVDMS40MjU0NyAxNy44MDUzIDEuNjczNjggMTguMjM0IDIuMDE4MTQgMTguNTc4NEMyLjM2MjYxIDE4LjkyMjkgMi43OTEzIDE5LjE3MTEgMy4yNjE1MyAxOS4yOTgzQzQuOTgyOTggMTkuNzY3OCAxMS45MTE1IDE5Ljc2NzggMTEuOTExNSAxOS43Njc4QzExLjkxMTUgMTkuNzY3OCAxOC44Mzk5IDE5Ljc2NzggMjAuNTYxNCAxOS4yOTgzQzIxLjAzMTYgMTkuMTcxMSAyMS40NjAzIDE4LjkyMjkgMjEuODA0OCAxOC41Nzg0QzIyLjE0OTIgMTguMjM0IDIyLjM5NzQgMTcuODA1MyAyMi41MjQ3IDE3LjMzNUMyMy4wNzM4IDE0LjI3MiAyMy4yNDMxIDkuNjE0MTMgMjIuNTEwNSA2LjY2NDkxWiIgZmlsbD0iI0ZGMDAwMCIvPgo8cGF0aCBkPSJNOS42OTE4OSAxNS4zMjkxTDE1LjQzOTUgMTJMOS42OTE4OSA4LjY3MDlWMTUuMzI5MVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0yMi41MTg1IDYuOTMxNzVDMjIuMzkzNCA2LjQ2OTI4IDIyLjE0OTMgNi4wNDc2NyAyMS44MTA1IDUuNzA4ODlDMjEuNDcxNyA1LjM3MDEyIDIxLjA1MDEgNS4xMjYgMjAuNTg3NiA1LjAwMDg2QzE4Ljg5NDYgNC41MzkxMiAxMi4wODA1IDQuNTM5MTIgMTIuMDgwNSA0LjUzOTEyQzEyLjA4MDUgNC41MzkxMiA1LjI2NjQyIDQuNTUzMTIgMy41NzMzOSA1LjAxNDg1QzMuMTEwOTIgNS4xMzk5OSAyLjY4OTMxIDUuMzg0MTEgMi4zNTA1MyA1LjcyMjg4QzIuMDExNzYgNi4wNjE2NiAxLjc2NzY0IDYuNDgzMjggMS42NDI1IDYuOTQ1NzRDMS4xMzAzOSA5Ljk1NDAyIDAuOTMxNzA2IDE0LjUzNzggMS42NTY0OSAxNy40MjU3QzEuNzgxNjMgMTcuODg4MiAyLjAyNTc1IDE4LjMwOTggMi4zNjQ1MiAxOC42NDg2QzIuNzAzMyAxOC45ODc0IDMuMTI0OTEgMTkuMjMxNSAzLjU4NzM4IDE5LjM1NjZDNS4yODA0MSAxOS44MTg0IDEyLjA5NDUgMTkuODE4NCAxMi4wOTQ1IDE5LjgxODRDMTIuMDk0NSAxOS44MTg0IDE4LjkwODYgMTkuODE4NCAyMC42MDE2IDE5LjM1NjZDMjEuMDY0MSAxOS4yMzE1IDIxLjQ4NTcgMTguOTg3NCAyMS44MjQ1IDE4LjY0ODZDMjIuMTYzMyAxOC4zMDk4IDIyLjQwNzQgMTcuODg4MiAyMi41MzI1IDE3LjQyNTdDMjMuMDcyNiAxNC40MTMzIDIzLjIzOTEgOS44MzIyOSAyMi41MTg1IDYuOTMxNzVaIiBmaWxsPSIjRkYwMDAwIi8+CjxwYXRoIGQ9Ik05LjkxMTg3IDE1LjQ1MjhMMTUuNTY0NiAxMi4xNzg3TDkuOTExODcgOC45MDQ2VjE1LjQ1MjhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K"
+                                alt="YouTube"
+                                className="video-icon"
+                              />
+                              <span className="video-title-text">
+                                {note.videoTitle}
+                              </span>
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -202,13 +224,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 ))}
               </ul>
 
-              {/* Add New Notebook Section - Sticky at Bottom */}
               <div className="add-notebook-sticky">
                 {isAddingNotebook ? (
                   <div className="add-notebook-form">
                     <input
                       type="text"
-                      placeholder="New notebook name"
+                      placeholder="New category name"
                       value={newNotebookName}
                       onChange={(e) => setNewNotebookName(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -220,7 +241,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => setIsAddingNotebook(true)}
                     className="add-notebook-button"
                   >
-                    + Add New Notebook
+                    <i className="fas fa-plus"></i>
+                    Add New Category
                   </button>
                 )}
               </div>

@@ -25,11 +25,16 @@ function App() {
     { name: "Entertainment", notes: [] },
     { name: "Uncategorized", notes: [] },
   ]);
-  const [selectedCategory, setSelectedCategory] = useState("Entertainment");
+  const [selectedCategory, setSelectedCategory] = useState("Uncategorized");
   const [videoUrl, setVideoUrl] = useState("");
-  const [newNote, setNewNote] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [shouldRefreshNotes, setShouldRefreshNotes] = useState(0);
+
+  // Function to refresh notes
+  const refreshNotes = () => {
+    setShouldRefreshNotes((prev) => prev + 1);
+  };
 
   // Load saved notes from backend
   useEffect(() => {
@@ -40,16 +45,15 @@ function App() {
         );
         if (response.data) {
           // Group notes by category
-          const groupedNotes = response.data.reduce(
-            (acc: Category[], note: Note) => {
-              const category = acc.find(
-                (cat) => cat.name === note.category
-              ) || { name: note.category, notes: [] };
-              category.notes.push(note);
-              return acc;
-            },
-            categories
-          );
+          const groupedNotes = categories.map((category) => {
+            const categoryNotes = response.data.filter(
+              (note: Note) => note.category === category.name
+            );
+            return {
+              ...category,
+              notes: categoryNotes,
+            };
+          });
           setCategories(groupedNotes);
         }
       } catch (error) {
@@ -58,124 +62,107 @@ function App() {
     };
 
     fetchNotes();
-  }, []);
-
-  const handleAddNote = async () => {
-    if (!newNote.trim() || !videoUrl.trim()) return;
-
-    try {
-      setIsLoading(true);
-      const response = await axios.post(
-        "http://localhost:5000/api/videos/save",
-        {
-          videoUrl,
-          content: newNote,
-          category: selectedCategory,
-          isPinned: false,
-        }
-      );
-
-      if (response.data) {
-        const updatedCategories = categories.map((category) => {
-          if (category.name === selectedCategory) {
-            return {
-              ...category,
-              notes: [...category.notes, response.data],
-            };
-          }
-          return category;
-        });
-
-        setCategories(updatedCategories);
-        setNewNote("");
-        setVideoUrl("");
-      }
-    } catch (error) {
-      console.error("Error saving note:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [shouldRefreshNotes]);
 
   const handleAddCategory = (newCategoryName: string) => {
     if (!newCategoryName.trim()) return;
     setCategories([...categories, { name: newCategoryName.trim(), notes: [] }]);
   };
 
+  // Function to handle video selection
+  const handleVideoSelect = (url: string, title: string) => {
+    setVideoUrl(url);
+    setVideoTitle(title);
+  };
+
+  // Listen for messages from the Chrome extension
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (
+        event.data &&
+        event.data.type === "REFRESH_NOTES" &&
+        event.data.source === "video_summarizer"
+      ) {
+        refreshNotes();
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   return (
     <div className="app-container">
-      {/* Sidebar Component */}
+      {/* Sidebar */}
       <Sidebar
         notebooks={categories}
         onAddNotebook={handleAddCategory}
         onSelectNotebook={setSelectedCategory}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
+        onSelectVideo={function (url: string, title: string): void {
+          throw new Error("Function not implemented.");
+        }}
       />
 
       {/* Main Content Area */}
       <div className="main-content">
-        <h1>YouTube Video Notes</h1>
-        <div className="input-container">
-          <input
-            type="text"
-            placeholder="Enter YouTube URL"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            className="url-input"
-          />
+        {/* Video Title */}
+        <div className="video-title">
+          <h1>{videoTitle || "No video selected"}</h1>
         </div>
 
-        {/* Notes List in Main Content */}
-        <div>
-          <h3>Notes in {selectedCategory}</h3>
-          <ul>
-            {categories
-              .find((cat) => cat.name === selectedCategory)
-              ?.notes.map((note, index) => (
-                <li key={index} className="note-item">
-                  <p className="note-title">{note.videoTitle}</p>
-                  <a
-                    href={note.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Watch Video
-                  </a>
-                  <p className="note-content">{note.content}</p>
-                  <p className="note-timestamp">
-                    {new Date(note.timestamp).toLocaleString()}
-                  </p>
-                </li>
-              ))}
-          </ul>
+        {/* Video Player */}
+        <div className="video-container">
+          {videoUrl ? (
+            <iframe
+              width="100%"
+              height="500"
+              src={`https://www.youtube.com/embed/${getVideoId(videoUrl)}`}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          ) : (
+            <div className="no-video">
+              <p>No video selected</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Notes Panel */}
       <div className="notes-panel">
         <h2>Notes</h2>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-        >
-          {categories.map((category) => (
-            <option key={category.name} value={category.name}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <textarea
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Add a note..."
-        />
-        <button onClick={handleAddNote} disabled={isLoading}>
-          {isLoading ? "Saving..." : "Add Note"}
-        </button>
+        <div className="notes-container">
+          {categories
+            .find((cat) => cat.name === selectedCategory)
+            ?.notes.filter((note) => note.videoUrl === videoUrl)
+            .map((note, index) => (
+              <div key={index} className="content-item">
+                <div className="content-area">{note.content}</div>
+                {note.timestamp && (
+                  <div className="timestamp-container">
+                    <button className="clickable-timestamp">
+                      <span className="material-symbols-outlined">
+                        play_arrow
+                      </span>
+                      <span>{note.timestamp}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
       </div>
     </div>
   );
+}
+
+// Helper function to extract video ID from URL
+function getVideoId(url: string): string {
+  const match = url.match(/[?&]v=([^&]+)/);
+  return match ? match[1] : "";
 }
 
 export default App;
