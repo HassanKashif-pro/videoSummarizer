@@ -534,33 +534,109 @@ function createFloatingUI() {
       return;
     }
 
-    // Collect all content
-    let combinedContent = "";
-    contentItems.forEach((item) => {
-      const contentArea = item.querySelector(".content-area");
-      if (contentArea) {
-        combinedContent += contentArea.innerHTML + "\n\n";
-      }
-    });
+    // Save each content item separately
+    let savedCount = 0;
+    // Use Promise.all to properly handle async operations
+    await Promise.all(
+      Array.from(contentItems).map(async (item) => {
+        const contentArea = item.querySelector(".content-area");
+        const timestampContainer = item.querySelector(".timestamp-container");
+        const timestampText = timestampContainer?.querySelector(
+          ".clickable-timestamp span:last-child"
+        );
 
-    if (combinedContent.trim()) {
-      const video = document.querySelector("video");
-      const currentTime = video ? formatTime(video.currentTime) : "0:00";
-      await saveNoteToBackend(combinedContent, currentTime);
+        if (contentArea && contentArea.innerHTML.trim()) {
+          const timestamp = timestampText?.textContent || "0:00";
+          const saved = await saveNoteToBackend(
+            contentArea.innerHTML,
+            timestamp
+          );
+          if (saved) savedCount++;
+        }
+      })
+    );
+
+    if (savedCount > 0) {
+      showNotification(
+        `${savedCount} note${savedCount > 1 ? "s" : ""} saved successfully!`
+      );
+      // Clear the main body content after saving
+      clearMainBody();
     } else {
       showNotification("No content to save!");
     }
   });
 
-  formContainer.appendChild(screenshotIcon);
-  formContainer.appendChild(saveIcon);
+  function clearMainBody() {
+    const mainBody = document.querySelector(".main_body");
+    if (mainBody) {
+      mainBody.innerHTML = ""; // Clear all content
+      // Add back the top row
+      const topRow = document.createElement("div");
+      topRow.className = "top_row";
+      const magicIcon = document.createElement("span");
+      magicIcon.className = "material-symbols-outlined icon book_4_spark";
+      magicIcon.textContent = "book_4";
+      const summarizeIcon = document.createElement("span");
+      summarizeIcon.className = "material-symbols-outlined icon summarize";
+      summarizeIcon.textContent = "summarize";
+      summarizeIcon.title = "Generate Summary";
+      topRow.appendChild(magicIcon);
+      topRow.appendChild(summarizeIcon);
+      mainBody.appendChild(topRow);
+    }
+  }
+
+  // Add this function to clean up content
+  function cleanContent(content: string): string {
+    // Create a temporary div to handle HTML content
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = content;
+
+    // First, handle line breaks and convert them to newlines
+    let html = tempDiv.innerHTML
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<div>/gi, "\n")
+      .replace(/<\/div>/gi, "\n");
+
+    // Create another temp div to decode HTML entities
+    const decodingDiv = document.createElement("div");
+    decodingDiv.innerHTML = html;
+    html = decodingDiv.textContent || decodingDiv.innerText || "";
+
+    // Clean up the text
+    return (
+      html
+        // Replace multiple spaces with single space
+        .replace(/\s+/g, " ")
+        // Replace multiple newlines with at most two
+        .replace(/\n\s*\n\s*\n/g, "\n\n")
+        // Remove spaces before newlines
+        .replace(/\s+\n/g, "\n")
+        // Remove spaces after newlines
+        .replace(/\n\s+/g, "\n")
+        // Remove any HTML entities that might remain
+        .replace(/&[a-z]+;/gi, " ")
+        // Final trim
+        .trim()
+    );
+  }
 
   async function saveNoteToBackend(content: string, timestamp: string) {
     try {
       const videoId = new URLSearchParams(window.location.search).get("v");
       if (!videoId) {
         showNotification("No video ID found!");
-        return;
+        return false;
+      }
+
+      // Clean the content before saving
+      const cleanedContent = cleanContent(content);
+
+      // Don't save if content is empty after cleaning
+      if (!cleanedContent.trim()) {
+        return false;
       }
 
       const response = await fetch("http://localhost:5000/api/videos/save", {
@@ -572,7 +648,7 @@ function createFloatingUI() {
           videoId: videoId,
           videoTitle: document.title.replace(" - YouTube", ""),
           videoUrl: window.location.href,
-          content: content.trim(),
+          content: cleanedContent,
           contentType: "text",
           category: "Uncategorized",
           isPinned: false,
@@ -581,42 +657,28 @@ function createFloatingUI() {
       });
 
       if (response.ok) {
-        showNotification("Note saved successfully!");
-        // Clear the main body content
-        const mainBody = document.querySelector(".main_body");
-        if (mainBody) {
-          mainBody.innerHTML = ""; // Clear all content
-          // Add back the top row
-          const topRow = document.createElement("div");
-          topRow.className = "top_row";
-          const magicIcon = document.createElement("span");
-          magicIcon.className = "material-symbols-outlined icon book_4_spark";
-          magicIcon.textContent = "book_4";
-          const summarizeIcon = document.createElement("span");
-          summarizeIcon.className = "material-symbols-outlined icon summarize";
-          summarizeIcon.textContent = "summarize";
-          summarizeIcon.title = "Generate Summary";
-          topRow.appendChild(magicIcon);
-          topRow.appendChild(summarizeIcon);
-          mainBody.appendChild(topRow);
-        }
-
         // Notify the main app to refresh notes
         window.postMessage(
           { type: "REFRESH_NOTES", source: "video_summarizer" },
           "*"
         );
+        return true;
       } else {
         const errorData = await response.json();
         showNotification(
           `Failed to save note: ${errorData.error || "Unknown error"}`
         );
+        return false;
       }
     } catch (error) {
       console.error("Error saving note:", error);
       showNotification("Error saving note. Please try again.");
+      return false;
     }
   }
+
+  formContainer.appendChild(screenshotIcon);
+  formContainer.appendChild(saveIcon);
 
   function showNotification(message: string) {
     const notification = document.createElement("div");
