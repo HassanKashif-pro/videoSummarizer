@@ -676,3 +676,44 @@ button:focus-visible {
   background-color: #e01414;
   border-color: transparent;
 }
+
+.notes-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.floating-ui-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+.notes-search-bar {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1em;
+  background-color: #fff;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.notes-search-bar:focus {
+  border-color: #4caf50;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notes-search-bar {
+    background-color: #222;
+    color: #fff;
+    border: 1px solid #444;
+  }
+  .notes-search-bar:focus {
+    border-color: #4caf50;
+  }
+}

@@ -14,6 +14,7 @@ interface Note {
   videoId: string;
   videoTitle: string;
   videoUrl: string;
+  content: string;
 }
 
 interface Notebook {
@@ -198,12 +199,21 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                     {expandedNotebook === notebook.name && (
                       <ul className="notes-list">
-                        {notebook.notes.map((note) => (
+                        {Object.entries(
+                          notebook.notes.reduce((acc, note) => {
+                            if (!acc[note.videoUrl]) acc[note.videoUrl] = [];
+                            acc[note.videoUrl].push(note);
+                            return acc;
+                          }, {} as Record<string, Note[]>)
+                        ).map(([videoUrl, notesForVideo]) => (
                           <li
-                            key={note.videoId}
+                            key={videoUrl}
                             className="note-item video-title-item"
                             onClick={() =>
-                              handleVideoClick(note.videoUrl, note.videoTitle)
+                              handleVideoClick(
+                                videoUrl,
+                                notesForVideo[0].videoTitle
+                              )
                             }
                           >
                             <div className="note-title">
@@ -213,7 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 className="video-icon"
                               />
                               <span className="video-title-text">
-                                {note.videoTitle}
+                                {notesForVideo[0].videoTitle}
                               </span>
                             </div>
                           </li>
