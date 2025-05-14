@@ -194,3 +194,86 @@ export const getVideoNotes = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch video notes" });
   }
 };
+
+// Add this new function to get video category
+export const getVideoCategory = async (req: Request, res: Response) => {
+  try {
+    const videoId = req.params.videoId;
+
+    if (!videoId) {
+      return res.status(400).json({ error: "Missing video ID" });
+    }
+
+    const response = await axios.get(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`
+    );
+
+    if (!response.data.items || response.data.items.length === 0) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    const videoData = response.data.items[0].snippet;
+    const categoryId = videoData.categoryId;
+    const tags = videoData.tags || [];
+    const description = videoData.description || "";
+    const title = videoData.title || "";
+
+    console.log("YouTube API videoData:", videoData);
+    console.log("YouTube API categoryId:", categoryId);
+    console.log("Video title:", title);
+    console.log("Video description:", description);
+    console.log("Video tags:", tags);
+
+    // Map YouTube categoryId to our categories
+    let category = "Uncategorized";
+    if (categoryId === "27") {
+      category = "Education";
+    } else if (categoryId === "20") {
+      category = "Gaming";
+    } else if (categoryId === "28") {
+      category = "Science & Technology";
+    } else if (categoryId === "24" || categoryId === "10") {
+      category = "Entertainment";
+    }
+
+    // Fallback: Check title, description, and tags for keywords if still Uncategorized
+    if (category === "Uncategorized") {
+      const content = `${title} ${description} ${tags.join(" ")}`.toLowerCase();
+      if (
+        content.includes("education") ||
+        content.includes("tutorial") ||
+        content.includes("learn") ||
+        content.includes("course")
+      ) {
+        category = "Education";
+      } else if (
+        content.includes("game") ||
+        content.includes("gaming") ||
+        content.includes("gameplay")
+      ) {
+        category = "Gaming";
+      } else if (
+        content.includes("science") ||
+        content.includes("tech") ||
+        content.includes("technology")
+      ) {
+        category = "Science & Technology";
+      } else if (
+        content.includes("entertainment") ||
+        content.includes("music") ||
+        content.includes("comedy")
+      ) {
+        category = "Entertainment";
+      }
+    }
+
+    console.log("Final chosen category:", category);
+    res.json({ category });
+  } catch (error: any) {
+    console.error(
+      "Error fetching video category:",
+      error.response?.data || error.message || error
+    );
+    res.status(500).json({ error: "Failed to fetch video category" });
+  }
+};

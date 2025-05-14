@@ -521,6 +521,39 @@ function createFloatingUI() {
             // Final trim
             .trim());
     }
+    // Function to get video category
+    async function getVideoCategory(videoId) {
+        try {
+            const response = await fetch(`http://localhost:5000/api/videos/category/${videoId}`);
+            const data = await response.json();
+            if (data.error) {
+                console.error("Error getting video category:", data.error);
+                return "Uncategorized";
+            }
+            // Map YouTube categories to our categories
+            const category = data.category;
+            if (category.includes("Science") || category.includes("Technology")) {
+                return "Science & Technology";
+            }
+            else if (category.includes("Education") ||
+                category.includes("Learning")) {
+                return "Education";
+            }
+            else if (category.includes("Gaming") || category.includes("Game")) {
+                return "Gaming";
+            }
+            else if (category.includes("Entertainment") ||
+                category.includes("Music") ||
+                category.includes("Comedy")) {
+                return "Entertainment";
+            }
+            return "Uncategorized";
+        }
+        catch (error) {
+            console.error("Error fetching video category:", error);
+            return "Uncategorized";
+        }
+    }
     async function saveNoteToBackend(content, timestamp) {
         try {
             const videoId = new URLSearchParams(window.location.search).get("v");
@@ -534,6 +567,8 @@ function createFloatingUI() {
             if (!cleanedContent.trim()) {
                 return false;
             }
+            // Get video category before saving
+            const category = await getVideoCategory(videoId);
             const response = await fetch("http://localhost:5000/api/videos/save", {
                 method: "POST",
                 headers: {
@@ -545,7 +580,7 @@ function createFloatingUI() {
                     videoUrl: window.location.href,
                     content: cleanedContent,
                     contentType: "text",
-                    category: "Uncategorized",
+                    category: category,
                     isPinned: false,
                     timestamp: timestamp,
                 }),
