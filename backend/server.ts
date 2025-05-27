@@ -1,5 +1,5 @@
 const { getTranscript } = require("youtube-transcript-api");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { CohereClient } = require('cohere-ai');
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
@@ -14,6 +14,13 @@ const {
   saveVideoNote,
   getVideoNotes,
 } = require("./controllers/videoController");
+
+// Add type for Cohere client
+type CohereClient = any; // You can replace this with proper type if available
+
+// Initialize APIs and constants
+const youtube = google.youtube("v3");
+const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -25,52 +32,6 @@ const PROXY_LIST = process.env.PROXY_LIST
   : [];
 const USE_PROXY = process.env.USE_PROXY === "true";
 let currentProxyIndex = 0;
-
-// Create logs directory if it doesn't exist
-if (!fs.existsSync(LOG_DIR)) {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
-}
-
-// Initialize API stats if file doesn't exist
-if (!fs.existsSync(API_STATS_FILE)) {
-  fs.writeFileSync(
-    API_STATS_FILE,
-    JSON.stringify({
-      youtubeApi: {
-        totalRequests: 0,
-        successfulRequests: 0,
-        failedRequests: 0,
-        lastError: null,
-        lastErrorTime: null,
-        quotaUsed: 0,
-      },
-      youtubeTranscriptApi: {
-        totalRequests: 0,
-        successfulRequests: 0,
-        failedRequests: 0,
-        lastError: null,
-        lastErrorTime: null,
-      },
-      assemblyAI: {
-        totalRequests: 0,
-        successfulRequests: 0,
-        failedRequests: 0,
-        lastError: null,
-        lastErrorTime: null,
-      },
-    })
-  );
-}
-
-// Initialize Gemini AI
-let genAI;
-let geminiModel: any;
-
-// Add YouTube Data API implementation
-const youtube = google.youtube("v3");
-
-// Add AssemblyAI implementation
-const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 
 // Add these constants after the imports
 const USER_AGENTS = [
@@ -115,41 +76,78 @@ async function withRetry<T>(
   throw lastError;
 }
 
-try {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured in .env file");
+// Update the rate limit constants for Cohere
+const COHERE_RATE_LIMIT = {
+  requestsPerMinute: 20, // Reduced from 100 to be more conservative
+  tokensPerMinute: 20000, // Reduced from 100000 to be more conservative
+  requests: [] as number[],
+  tokens: [] as number[],
+  maxInputLength: 25000, // Maximum input length in characters
+  maxOutputTokens: 150, // Maximum output tokens for summaries
+};
+
+// Function to check rate limits
+function checkCohereRateLimit(inputTokens = 0) {
+  const now = Date.now();
+  const oneMinuteAgo = now - 60000;
+  
+  // Clean up old requests
+  COHERE_RATE_LIMIT.requests = COHERE_RATE_LIMIT.requests.filter(time => time > oneMinuteAgo);
+  COHERE_RATE_LIMIT.tokens = COHERE_RATE_LIMIT.tokens.filter(time => time > oneMinuteAgo);
+  
+  // Check limits
+  if (COHERE_RATE_LIMIT.requests.length >= COHERE_RATE_LIMIT.requestsPerMinute) {
+    throw new Error(`Cohere API request rate limit exceeded (${COHERE_RATE_LIMIT.requestsPerMinute} requests/minute). Please wait.`);
   }
-  console.log("🔄 Initializing Gemini AI...");
-  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  
+  if (COHERE_RATE_LIMIT.tokens.length + inputTokens >= COHERE_RATE_LIMIT.tokensPerMinute) {
+    throw new Error(`Cohere API token rate limit exceeded (${COHERE_RATE_LIMIT.tokensPerMinute} tokens/minute). Please wait.`);
+  }
+  
+  // Add current request
+  COHERE_RATE_LIMIT.requests.push(now);
+  for (let i = 0; i < inputTokens; i++) {
+    COHERE_RATE_LIMIT.tokens.push(now);
+  }
+}
 
-  // Initialize with beta API version for Gemini 1.5
-  geminiModel = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro",
-    apiVersion: "v1beta",
+// Helper function to truncate text while preserving meaning
+function smartTruncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  
+  // Split into sentences
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+  let result = '';
+  let midPoint = Math.floor(sentences.length / 2);
+  
+  // Take some sentences from start and end
+  const startSentences = sentences.slice(0, midPoint).join(' ');
+  const endSentences = sentences.slice(-midPoint).join(' ');
+  
+  result = startSentences + ' ... ' + endSentences;
+  
+  // If still too long, do a hard truncate
+  if (result.length > maxLength) {
+    const halfLength = Math.floor(maxLength / 2) - 10;
+    result = text.substring(0, halfLength) + ' ... ' + text.substring(text.length - halfLength);
+  }
+  
+  return result;
+}
+
+// Initialize Cohere AI
+let cohereClient: CohereClient;
+try {
+  if (!process.env.COHERE_API_KEY) {
+    throw new Error("COHERE_API_KEY is not configured in .env file");
+  }
+  console.log("🔄 Initializing Cohere AI client...");
+  cohereClient = new CohereClient({ 
+    token: process.env.COHERE_API_KEY 
   });
-
-  // Test the connection immediately
-  (async () => {
-    try {
-      console.log("🔄 Testing Gemini connection...");
-      const prompt = "Hello! Please confirm if you're working.";
-      const result = await geminiModel.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      console.log("✅ Gemini test successful:", text);
-    } catch (testError) {
-      console.error("❌ Gemini test failed:", testError);
-      if (testError instanceof Error) {
-        console.error("Error details:", {
-          name: testError.name,
-          message: testError.message,
-          stack: testError.stack,
-        });
-      }
-    }
-  })();
+  console.log("✅ Cohere AI client initialized");
 } catch (error) {
-  console.error("❌ Failed to initialize Gemini AI:", error);
+  console.error("❌ Failed to initialize Cohere AI:", error);
   if (error instanceof Error) {
     console.error("Error message:", error.message);
   }
@@ -1132,7 +1130,7 @@ function processYouTubeCaptionData(captionData: any): string {
   }
 }
 
-// ✅ Summarize Transcript with Gemini
+// ✅ Summarize Transcript with Cohere
 app.post("/summarize", async (req: any, res: any) => {
   const transcript = req.body.transcript;
 
@@ -1150,38 +1148,70 @@ app.post("/summarize", async (req: any, res: any) => {
   }
 
   try {
-    console.log("🔄 Starting Gemini summarization process...");
-    console.log(`📝 Transcript length: ${transcript.length} characters`);
+    console.log("🔄 Starting Cohere summarization process...");
+    console.log(`📝 Original transcript length: ${transcript.length} characters`);
 
-    // Process transcript for Gemini
-    let processedTranscript = transcript;
-    const maxLength = 30000;
-    if (transcript.length > maxLength) {
-      processedTranscript =
-        transcript.substring(0, maxLength / 2) +
-        "..." +
-        transcript.substring(transcript.length - maxLength / 2);
-      console.log("📊 Truncated long transcript for Gemini");
+    // Smart truncate the transcript if needed
+    const processedTranscript = smartTruncateText(transcript, COHERE_RATE_LIMIT.maxInputLength);
+    console.log(`📝 Processed transcript length: ${processedTranscript.length} characters`);
+
+    // Estimate input tokens (rough estimate: 4 chars per token)
+    const estimatedInputTokens = Math.ceil(processedTranscript.length / 4);
+    const totalEstimatedTokens = estimatedInputTokens + COHERE_RATE_LIMIT.maxOutputTokens;
+
+    // Check rate limit with total estimated tokens
+    try {
+      checkCohereRateLimit(totalEstimatedTokens);
+    } catch (rateLimitError: unknown) {
+      const error = rateLimitError as Error;
+      console.warn("⚠️ Rate limit reached:", error.message);
+      return res.status(429).json({ 
+        error: "Rate limit exceeded",
+        message: error.message,
+        retryAfter: "60 seconds"
+      });
     }
 
-    const prompt = `Please provide a concise summary of this video transcript in 3-4 sentences: ${processedTranscript}`;
-    const result = await geminiModel.generateContent(prompt);
-    console.log("✅ Received response from Gemini");
+    const prompt = `Please provide a concise summary of this video transcript in 2-3 short sentences, focusing on the main points only: ${processedTranscript}`;
+    
+    const response = await cohereClient.generate({
+      model: 'command',
+      prompt: prompt,
+      max_tokens: COHERE_RATE_LIMIT.maxOutputTokens,
+      temperature: 0.3, // Reduced for more focused summaries
+      k: 0,
+      stop_sequences: ["\n\n", "###"],
+      return_likelihoods: 'NONE'
+    });
 
-    const response = await result.response;
-    console.log("✅ Got response object");
-
-    const summary = response.text();
-    console.log("✅ Extracted summary text");
+    console.log("✅ Received response from Cohere");
+    const summary = response.generations[0].text.trim();
 
     if (!summary || summary.trim() === "") {
-      throw new Error("Empty summary received from Gemini API");
+      throw new Error("Empty summary received from Cohere API");
     }
 
     console.log(`✅ Summary length: ${summary.length} characters`);
     console.log(`📝 Summary: ${summary}`);
 
-    res.json({ summary });
+    // Update rate limit tracking with actual tokens used
+    const actualOutputTokens = Math.ceil(summary.length / 4);
+    const totalActualTokens = estimatedInputTokens + actualOutputTokens;
+    
+    // Adjust token count in rate limiter (remove estimated, add actual)
+    COHERE_RATE_LIMIT.tokens = COHERE_RATE_LIMIT.tokens.slice(0, -totalEstimatedTokens);
+    for (let i = 0; i < totalActualTokens; i++) {
+      COHERE_RATE_LIMIT.tokens.push(Date.now());
+    }
+
+    res.json({ 
+      summary,
+      tokenStats: {
+        inputTokens: estimatedInputTokens,
+        outputTokens: actualOutputTokens,
+        totalTokens: totalActualTokens
+      }
+    });
   } catch (error) {
     console.error("❌ Summarization error:", error);
     if (error instanceof Error) {
@@ -1194,33 +1224,53 @@ app.post("/summarize", async (req: any, res: any) => {
 
     res.status(500).json({
       error: "Failed to generate summary",
-      details: error instanceof Error ? error.message : "Unknown error",
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 });
 
-// ✅ Test Gemini Connection
-app.get("/test/gemini", async (req: any, res: any) => {
-  console.log("📝 Testing Gemini AI connection...");
+// ✅ Test Cohere Connection
+app.get("/test/cohere", async (req: any, res: any) => {
+  console.log("📝 Testing Cohere AI connection...");
 
   try {
-    const testPrompt = "Hello! Please respond with a short greeting.";
-    const result = await geminiModel.generateContent(testPrompt);
-    const response = await result.response;
-    const text = response.text();
+    // Add rate limit check with minimal tokens
+    try {
+      // Test prompt is very short, estimate 5 tokens for input and 10 for output
+      checkCohereRateLimit(15);
+    } catch (rateLimitError: unknown) {
+      if (rateLimitError instanceof Error) {
+        console.warn("⚠️ Rate limit reached:", rateLimitError.message);
+        return res.status(429).json({ 
+          error: "Rate limit exceeded",
+          message: rateLimitError.message,
+          retryAfter: "60 seconds"
+        });
+      }
+      throw rateLimitError;
+    }
 
-    console.log("✅ Gemini AI test successful!");
+    const response = await cohereClient.generate({
+      model: 'command',
+      prompt: 'Say hi',
+      max_tokens: 10,
+      temperature: 0.3,
+      stop_sequences: ["\n", "."],
+      return_likelihoods: 'NONE'
+    });
+
+    console.log("✅ Cohere AI test successful!");
     res.json({
       status: "success",
-      message: "Gemini AI is working correctly",
-      response: text,
+      message: "Cohere AI is working correctly",
+      response: response.generations[0].text.trim()
     });
   } catch (error) {
-    console.error("❌ Gemini AI test failed:", error);
+    console.error("❌ Cohere AI test failed:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to connect to Gemini AI",
-      details: error instanceof Error ? error.message : "Unknown error",
+      error: "Failed to connect to Cohere AI",
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 });
