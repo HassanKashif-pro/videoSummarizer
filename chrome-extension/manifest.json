@@ -2,41 +2,42 @@
     "manifest_version": 3,
     "name": "Summify",
     "version": "1.0.0",
-    "icons": {
-        "32": "/icons/SUMMIFY.png"
-    },
     "background": {
-        "service_worker": "service-worker.js",
+        "service_worker": "dist/service-worker.js",
         "type": "module"
     },
     "content_scripts": [
-    {
-    "matches": ["*://www.youtube.com/*"],
-    "js": ["content.js"],
-    "css": ["content.css"],
-    "run_at": "document_idle"
-    }
+        {
+            "matches": [
+                "https://www.youtube.com/*",
+                "https://m.youtube.com/*"
+            ],
+            "js": ["dist/content.js"],
+            "css": ["content.css"],
+            "run_at": "document_idle"
+        }
     ],
     "action": {
-    "default_icon": "/icons/SUMMIFY.png",
-    "default_title": "Summify Video Summarizer"
+        "default_title": "Summify Video Summarizer",
+        "default_popup": "popup.html"
     },
     "permissions": [
         "scripting",
         "activeTab"
     ],
     "host_permissions": [
-        "http://*/*",
-        "https://*/*",
-        "https://www.youtube.com/*"
+        "https://www.youtube.com/*",
+        "https://m.youtube.com/*",
+        "http://*/*",   
+        "https://*/*"   
     ],
     "web_accessible_resources": [
-    {
-      "resources": ["icons/image.png"],
-      "matches": ["<all_urls>"]
+        {
+            "resources": ["dist/*", "*.css"],
+            "matches": ["<all_urls>"]
+        }
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
     }
-  ],
-  "content_security_policy": {
-  "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
-}
 }

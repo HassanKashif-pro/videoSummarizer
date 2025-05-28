@@ -104,3 +104,4 @@ document.addEventListener("DOMContentLoaded", () => {
         await handleSaveNote(noteContent, screenshot);
     });
 });
+//# sourceMappingURL=popup.js.map

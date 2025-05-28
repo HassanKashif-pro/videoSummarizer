@@ -1,5 +1,26 @@
 {
+  "name": "summify-extension",
+  "version": "1.0.0",
+  "description": "YouTube Video Summarizer Chrome Extension",
+  "scripts": {
+    "build": "tsc && npm run copy-icons",
+    "copy-icons": "npx cpx \"icons/**/*\" dist/icons",
+    "watch": "tsc --watch",
+    "clean": "rimraf dist",
+    "dev": "npm run clean && npm run build && npm run watch"
+  },
+  "dependencies": {
+    "@types/chrome": "^0.0.260"
+  },
   "devDependencies": {
-    "@types/chrome": "^0.0.309"
-  }
+    "typescript": "^5.3.3",
+    "rimraf": "^5.0.5",
+    "cpx": "^1.5.0"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "dist/*", "*.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

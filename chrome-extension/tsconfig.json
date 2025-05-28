@@ -1,15 +1,26 @@
 {
     "compilerOptions": {
-      "target": "ESNext",
-      "lib": ["ESNext", "DOM"],
+      "target": "ES2020",
+      "lib": ["ES2020", "DOM"],
       "types": ["chrome"],
-      "module": "ESNext",
-      "moduleResolution": "Node",
+      "module": "ES2020",
+      "moduleResolution": "node",
+      "outDir": "./dist",
+      "rootDir": "./",
       "strict": true,
       "esModuleInterop": true,
       "skipLibCheck": true,
-      "forceConsistentCasingInFileNames": true
-    }
-    
-  }
+      "forceConsistentCasingInFileNames": true,
+      "jsx": "react",
+      "sourceMap": true
+    },
+    "include": [
+      "*.ts",
+      "*.tsx"
+    ],
+    "exclude": [
+      "node_modules",
+      "dist"
+    ]
+}
   

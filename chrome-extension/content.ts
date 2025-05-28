@@ -11,7 +11,7 @@ document.head.appendChild(link);
 const checkInterval = setInterval(() => {
   const videoPlayer = document.querySelector(".html5-video-player");
   if (videoPlayer && !document.getElementById("summify-watermark")) {
-    clearInterval(checkInterval);
+    clearInterval(checkInterval); 
     const watermark = document.createElement("div");
     watermark.id = "summify-watermark";
     const logoImage = document.createElement("img");
@@ -165,7 +165,7 @@ function createFloatingUI() {
 
       // Get transcript
       const transcriptResponse = await fetch(
-        `http://localhost:5000/transcript/${videoId}`
+        `https://api.supadata.ai/v1/youtube/transcript?video_id=${videoId}`
       );
       const transcriptData = await transcriptResponse.json();
 

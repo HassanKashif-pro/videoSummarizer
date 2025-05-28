@@ -14,6 +14,13 @@ const {
   saveVideoNote,
   getVideoNotes,
 } = require("./controllers/videoController");
+
+// Add type for Cohere client
+type CohereClient = any; // You can replace this with proper type if available
+
+// Initialize APIs and constants
+const youtube = google.youtube("v3");
+const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -62,57 +69,6 @@ if (!fs.existsSync(API_STATS_FILE)) {
   );
 }
 
-// Initialize Cohere AI
-let cohereClient: typeof CohereClient;
-
-try {
-  if (!process.env.COHERE_API_KEY) {
-    throw new Error("COHERE_API_KEY is not configured in .env file");
-  }
-  console.log("🔄 Initializing Cohere AI...");
-  cohereClient = new CohereClient({
-    token: process.env.COHERE_API_KEY
-  }) as typeof CohereClient;
-
-  // // Test the connection immediately
-  // (async () => {
-  //   try {
-  //     const prompt = "Hello! Please confirm if you're working.";
-  //     const response = await cohereClient.generate({
-  //       prompt: prompt,
-  //       maxTokens: 50,
-  //       temperature: 0.7,
-  //       k: 0,
-  //       stopSequences: [],
-  //       returnLikelihoods: 'NONE'
-  //     });
-  //     console.log("✅ Cohere test successful:", response.generations[0].text);
-  //   } catch (testError) {
-  //     console.error("❌ Cohere test failed:", testError);
-  //     if (testError instanceof Error) {
-  //       console.error("Error details:", {
-  //         name: testError.name,
-  //         message: testError.message,
-  //         stack: testError.stack,
-  //       });
-  //     }
-  //   }
-  // })();
-  console.log("✅ Cohere AI initialized successfully");
-} catch (error) {
-  console.error("❌ Failed to initialize Cohere AI:", error);
-  if (error instanceof Error) {
-    console.error("Error message:", error.message);
-  }
-  process.exit(1);
-}
-
-// Add YouTube Data API implementation
-const youtube = google.youtube("v3");
-
-// Add AssemblyAI implementation
-const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
-
 // Add these constants after the imports
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -154,6 +110,84 @@ async function withRetry<T>(
   }
 
   throw lastError;
+}
+
+// Update the rate limit constants for Cohere
+const COHERE_RATE_LIMIT = {
+  requestsPerMinute: 20, // Reduced from 100 to be more conservative
+  tokensPerMinute: 20000, // Reduced from 100000 to be more conservative
+  requests: [] as number[],
+  tokens: [] as number[],
+  maxInputLength: 25000, // Maximum input length in characters
+  maxOutputTokens: 150, // Maximum output tokens for summaries
+};
+
+// Function to check rate limits
+function checkCohereRateLimit(inputTokens = 0) {
+  const now = Date.now();
+  const oneMinuteAgo = now - 60000;
+  
+  // Clean up old requests
+  COHERE_RATE_LIMIT.requests = COHERE_RATE_LIMIT.requests.filter(time => time > oneMinuteAgo);
+  COHERE_RATE_LIMIT.tokens = COHERE_RATE_LIMIT.tokens.filter(time => time > oneMinuteAgo);
+  
+  // Check limits
+  if (COHERE_RATE_LIMIT.requests.length >= COHERE_RATE_LIMIT.requestsPerMinute) {
+    throw new Error(`Cohere API request rate limit exceeded (${COHERE_RATE_LIMIT.requestsPerMinute} requests/minute). Please wait.`);
+  }
+  
+  if (COHERE_RATE_LIMIT.tokens.length + inputTokens >= COHERE_RATE_LIMIT.tokensPerMinute) {
+    throw new Error(`Cohere API token rate limit exceeded (${COHERE_RATE_LIMIT.tokensPerMinute} tokens/minute). Please wait.`);
+  }
+  
+  // Add current request
+  COHERE_RATE_LIMIT.requests.push(now);
+  for (let i = 0; i < inputTokens; i++) {
+    COHERE_RATE_LIMIT.tokens.push(now);
+  }
+}
+
+// Helper function to truncate text while preserving meaning
+function smartTruncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  
+  // Split into sentences
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+  let result = '';
+  let midPoint = Math.floor(sentences.length / 2);
+  
+  // Take some sentences from start and end
+  const startSentences = sentences.slice(0, midPoint).join(' ');
+  const endSentences = sentences.slice(-midPoint).join(' ');
+  
+  result = startSentences + ' ... ' + endSentences;
+  
+  // If still too long, do a hard truncate
+  if (result.length > maxLength) {
+    const halfLength = Math.floor(maxLength / 2) - 10;
+    result = text.substring(0, halfLength) + ' ... ' + text.substring(text.length - halfLength);
+  }
+  
+  return result;
+}
+
+// Initialize Cohere AI
+let cohereClient: CohereClient;
+try {
+  if (!process.env.COHERE_API_KEY) {
+    throw new Error("COHERE_API_KEY is not configured in .env file");
+  }
+  console.log("🔄 Initializing Cohere AI client...");
+  cohereClient = new CohereClient({ 
+    token: process.env.COHERE_API_KEY 
+  });
+  console.log("✅ Cohere AI client initialized");
+} catch (error) {
+  console.error("❌ Failed to initialize Cohere AI:", error);
+  if (error instanceof Error) {
+    console.error("Error message:", error.message);
+  }
+  process.exit(1);
 }
 
 // Initialize database connection
@@ -1323,37 +1357,43 @@ app.post("/summarize", async (req: any, res: any) => {
 
   try {
     console.log("🔄 Starting Cohere summarization process...");
-    console.log(`📝 Transcript length: ${transcript.length} characters`);
+    console.log(`📝 Original transcript length: ${transcript.length} characters`);
 
-    // Process transcript for Cohere
-    let processedTranscript = transcript;
-    const maxLength = 30000;
-    if (transcript.length > maxLength) {
-      processedTranscript =
-        transcript.substring(0, maxLength / 2) +
-        "..." +
-        transcript.substring(transcript.length - maxLength / 2);
-      console.log("📊 Truncated long transcript for Cohere");
+    // Smart truncate the transcript if needed
+    const processedTranscript = smartTruncateText(transcript, COHERE_RATE_LIMIT.maxInputLength);
+    console.log(`📝 Processed transcript length: ${processedTranscript.length} characters`);
+
+    // Estimate input tokens (rough estimate: 4 chars per token)
+    const estimatedInputTokens = Math.ceil(processedTranscript.length / 4);
+    const totalEstimatedTokens = estimatedInputTokens + COHERE_RATE_LIMIT.maxOutputTokens;
+
+    // Check rate limit with total estimated tokens
+    try {
+      checkCohereRateLimit(totalEstimatedTokens);
+    } catch (rateLimitError: unknown) {
+      const error = rateLimitError as Error;
+      console.warn("⚠️ Rate limit reached:", error.message);
+      return res.status(429).json({ 
+        error: "Rate limit exceeded",
+        message: error.message,
+        retryAfter: "60 seconds"
+      });
     }
 
-    const prompt = `Please provide a concise summary of this video transcript in 3-4 sentences: ${processedTranscript}`;
+    const prompt = `Please provide a concise summary of this video transcript in 2-3 short sentences, focusing on the main points only: ${processedTranscript}`;
     
     const response = await cohereClient.generate({
+      model: 'command',
       prompt: prompt,
-      maxTokens: 200,
-      temperature: 0.7,
+      max_tokens: COHERE_RATE_LIMIT.maxOutputTokens,
+      temperature: 0.3, // Reduced for more focused summaries
       k: 0,
-      p: 0.9,
-      frequencyPenalty: 0,
-      presencePenalty: 0,
-      stopSequences: [],
-      returnLikelihoods: 'NONE'
+      stop_sequences: ["\n\n", "###"],
+      return_likelihoods: 'NONE'
     });
 
     console.log("✅ Received response from Cohere");
-
     const summary = response.generations[0].text.trim();
-    console.log("✅ Extracted summary text");
 
     if (!summary || summary.trim() === "") {
       throw new Error("Empty summary received from Cohere API");
@@ -1362,7 +1402,24 @@ app.post("/summarize", async (req: any, res: any) => {
     console.log(`✅ Summary length: ${summary.length} characters`);
     console.log(`📝 Summary: ${summary}`);
 
-    res.json({ summary });
+    // Update rate limit tracking with actual tokens used
+    const actualOutputTokens = Math.ceil(summary.length / 4);
+    const totalActualTokens = estimatedInputTokens + actualOutputTokens;
+    
+    // Adjust token count in rate limiter (remove estimated, add actual)
+    COHERE_RATE_LIMIT.tokens = COHERE_RATE_LIMIT.tokens.slice(0, -totalEstimatedTokens);
+    for (let i = 0; i < totalActualTokens; i++) {
+      COHERE_RATE_LIMIT.tokens.push(Date.now());
+    }
+
+    res.json({ 
+      summary,
+      tokenStats: {
+        inputTokens: estimatedInputTokens,
+        outputTokens: actualOutputTokens,
+        totalTokens: totalActualTokens
+      }
+    });
   } catch (error) {
     console.error("❌ Summarization error:", error);
     if (error instanceof Error) {
@@ -1375,7 +1432,7 @@ app.post("/summarize", async (req: any, res: any) => {
 
     res.status(500).json({
       error: "Failed to generate summary",
-      details: error instanceof Error ? error.message : "Unknown error",
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 });
@@ -1385,30 +1442,43 @@ app.get("/test/cohere", async (req: any, res: any) => {
   console.log("📝 Testing Cohere AI connection...");
 
   try {
-    const testPrompt = "Hello! Please respond with a short greeting.";
-    const response = await cohereClient.generate({
-      prompt: testPrompt,
-      maxTokens: 50,
-      temperature: 0.7,
-      k: 0,
-      stopSequences: [],
-      returnLikelihoods: 'NONE'
-    });
+    // Add rate limit check with minimal tokens
+    try {
+      // Test prompt is very short, estimate 5 tokens for input and 10 for output
+      checkCohereRateLimit(15);
+    } catch (rateLimitError: unknown) {
+      if (rateLimitError instanceof Error) {
+        console.warn("⚠️ Rate limit reached:", rateLimitError.message);
+        return res.status(429).json({ 
+          error: "Rate limit exceeded",
+          message: rateLimitError.message,
+          retryAfter: "60 seconds"
+        });
+      }
+      throw rateLimitError;
+    }
 
-    const text = response.generations[0].text.trim();
+    const response = await cohereClient.generate({
+      model: 'command',
+      prompt: 'Say hi',
+      max_tokens: 10,
+      temperature: 0.3,
+      stop_sequences: ["\n", "."],
+      return_likelihoods: 'NONE'
+    });
 
     console.log("✅ Cohere AI test successful!");
     res.json({
       status: "success",
       message: "Cohere AI is working correctly",
-      response: text,
+      response: response.generations[0].text.trim()
     });
   } catch (error) {
     console.error("❌ Cohere AI test failed:", error);
     res.status(500).json({
       status: "error",
       error: "Failed to connect to Cohere AI",
-      details: error instanceof Error ? error.message : "Unknown error",
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 });
