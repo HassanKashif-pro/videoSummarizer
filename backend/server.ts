@@ -1,5 +1,5 @@
 const { getTranscript } = require("youtube-transcript-api");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { CohereClient } = require('cohere-ai');
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
@@ -62,9 +62,50 @@ if (!fs.existsSync(API_STATS_FILE)) {
   );
 }
 
-// Initialize Gemini AI
-let genAI;
-let geminiModel: any;
+// Initialize Cohere AI
+let cohereClient: typeof CohereClient;
+
+try {
+  if (!process.env.COHERE_API_KEY) {
+    throw new Error("COHERE_API_KEY is not configured in .env file");
+  }
+  console.log("🔄 Initializing Cohere AI...");
+  cohereClient = new CohereClient({
+    token: process.env.COHERE_API_KEY
+  }) as typeof CohereClient;
+
+  // // Test the connection immediately
+  // (async () => {
+  //   try {
+  //     const prompt = "Hello! Please confirm if you're working.";
+  //     const response = await cohereClient.generate({
+  //       prompt: prompt,
+  //       maxTokens: 50,
+  //       temperature: 0.7,
+  //       k: 0,
+  //       stopSequences: [],
+  //       returnLikelihoods: 'NONE'
+  //     });
+  //     console.log("✅ Cohere test successful:", response.generations[0].text);
+  //   } catch (testError) {
+  //     console.error("❌ Cohere test failed:", testError);
+  //     if (testError instanceof Error) {
+  //       console.error("Error details:", {
+  //         name: testError.name,
+  //         message: testError.message,
+  //         stack: testError.stack,
+  //       });
+  //     }
+  //   }
+  // })();
+  console.log("✅ Cohere AI initialized successfully");
+} catch (error) {
+  console.error("❌ Failed to initialize Cohere AI:", error);
+  if (error instanceof Error) {
+    console.error("Error message:", error.message);
+  }
+  process.exit(1);
+}
 
 // Add YouTube Data API implementation
 const youtube = google.youtube("v3");
@@ -115,49 +156,36 @@ async function withRetry<T>(
   throw lastError;
 }
 
-try {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured in .env file");
-  }
-  console.log("🔄 Initializing Gemini AI...");
-  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-  // Initialize with beta API version for Gemini 1.5
-  geminiModel = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro",
-    apiVersion: "v1beta",
-  });
-
-  // Test the connection immediately
-  (async () => {
-    try {
-      console.log("🔄 Testing Gemini connection...");
-      const prompt = "Hello! Please confirm if you're working.";
-      const result = await geminiModel.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      console.log("✅ Gemini test successful:", text);
-    } catch (testError) {
-      console.error("❌ Gemini test failed:", testError);
-      if (testError instanceof Error) {
-        console.error("Error details:", {
-          name: testError.name,
-          message: testError.message,
-          stack: testError.stack,
-        });
-      }
-    }
-  })();
-} catch (error) {
-  console.error("❌ Failed to initialize Gemini AI:", error);
-  if (error instanceof Error) {
-    console.error("Error message:", error.message);
-  }
-  process.exit(1);
-}
-
 // Initialize database connection
 connectDB().catch(console.error);
+
+// Add environment variable validation
+console.log("🔍 Checking environment variables...");
+const requiredEnvVars = {
+  COHERE_API_KEY: process.env.COHERE_API_KEY,
+  YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY,
+  ASSEMBLYAI_API_KEY: process.env.ASSEMBLYAI_API_KEY,
+};
+
+const missingVars = Object.entries(requiredEnvVars)
+  .filter(([key, value]) => !value)
+  .map(([key]) => key);
+
+if (missingVars.length > 0) {
+  console.warn("⚠️ Missing environment variables:", missingVars.join(", "));
+  console.warn("⚠️ Some features may not work properly without these API keys");
+} else {
+  console.log("✅ All required environment variables are configured");
+}
+
+// Validate API keys format (basic check)
+if (process.env.YOUTUBE_API_KEY && !process.env.YOUTUBE_API_KEY.startsWith('AIza')) {
+  console.warn("⚠️ YouTube API key format looks incorrect (should start with 'AIza')");
+}
+
+if (process.env.COHERE_API_KEY && process.env.COHERE_API_KEY.length < 20) {
+  console.warn("⚠️ Cohere API key looks too short");
+}
 
 app.use(cors({ origin: "*" })); // ⚠️ Change this in production
 app.use(express.json());
@@ -377,6 +405,11 @@ const getTranscriptWithYouTubeAPI = async (videoId: string) => {
   try {
     console.log(`🔄 Fetching captions for video: ${videoId} using YouTube API`);
 
+    if (!youtubeAPI) {
+      console.warn("⚠️ YouTube API is not initialized, skipping...");
+      return null;
+    }
+
     // First, get the caption tracks for the video
     const response = await youtube.captions.list({
       key: process.env.YOUTUBE_API_KEY,
@@ -408,6 +441,22 @@ const getTranscriptWithYouTubeAPI = async (videoId: string) => {
     return transcript;
   } catch (error) {
     console.error("❌ Error fetching transcript with YouTube API:", error);
+    
+    // Don't expose API keys in error logs
+    if (error instanceof Error && error.message) {
+      const sanitizedMessage = error.message.replace(/key=[^&\s]+/g, 'key=***HIDDEN***');
+      console.error("❌ Sanitized error message:", sanitizedMessage);
+    }
+    
+    // Check if it's a 403 error (API key issue)
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403) {
+      console.error("❌ YouTube API returned 403 Forbidden. This usually means:");
+      console.error("   - API key is invalid or expired");
+      console.error("   - API key doesn't have YouTube Data API v3 enabled");
+      console.error("   - Quota exceeded");
+      console.error("   - API key restrictions (IP, referrer, etc.)");
+    }
+    
     return null;
   }
 };
@@ -891,11 +940,23 @@ app.post("/transcript/url", async (req: any, res: any) => {
             throw new Error("YouTube API key is not configured");
           }
 
+          if (!youtubeAPI) {
+            console.warn(
+              `⚠️ [API] [${requestId}] YouTube API is not initialized`
+            );
+            updateApiStats(
+              "youtubeApi",
+              false,
+              new Error("YouTube API is not initialized")
+            );
+            throw new Error("YouTube API is not initialized");
+          }
+
           // Get video details first to check if captions are available
           const videoResponse = await withRetry(async () => {
             return await youtube.videos.list({
               key: process.env.YOUTUBE_API_KEY,
-              part: ["contentDetails"],
+              part: ["snippet", "contentDetails"],
               id: [videoId],
             });
           });
@@ -905,8 +966,10 @@ app.post("/transcript/url", async (req: any, res: any) => {
             videoResponse.data.items.length === 0
           ) {
             updateApiStats("youtubeApi", false, new Error("Video not found"));
-            throw new Error("Video not found");
+            throw new Error("Video not found or not accessible");
           }
+
+          console.log(`✅ [API] [${requestId}] Video found: ${videoResponse.data.items[0].snippet?.title || 'Unknown title'}`);
 
           // Log the captions request
           logApiRequest("youtubeApi", {
@@ -942,6 +1005,7 @@ app.post("/transcript/url", async (req: any, res: any) => {
 
           // Get the first available caption track
           const captionId = captionsResponse.data.items[0].id;
+          console.log(`✅ [API] [${requestId}] Found caption track: ${captionsResponse.data.items[0].snippet?.name || 'Unknown'}`);
 
           // Log the caption download request
           logApiRequest("youtubeApi", {
@@ -957,6 +1021,7 @@ app.post("/transcript/url", async (req: any, res: any) => {
             return await youtube.captions.download({
               key: process.env.YOUTUBE_API_KEY,
               id: captionId,
+              tfmt: 'srt', // Request SRT format for easier parsing
             });
           });
 
@@ -987,6 +1052,22 @@ app.post("/transcript/url", async (req: any, res: any) => {
             youtubeApiError.message
           );
 
+          // Sanitize error message to hide API keys
+          if (youtubeApiError.message) {
+            const sanitizedMessage = youtubeApiError.message.replace(/key=[^&\s]+/g, 'key=***HIDDEN***');
+            console.warn(`⚠️ [API] [${requestId}] Sanitized error:`, sanitizedMessage);
+          }
+
+          // Check for specific error types
+          if (youtubeApiError.status === 403) {
+            console.error(`❌ [API] [${requestId}] YouTube API 403 Error - Check your API key configuration`);
+          } else if (youtubeApiError.status === 429) {
+            console.error(`❌ [API] [${requestId}] YouTube API quota exceeded`);
+          } else if (youtubeApiError.status === 400) {
+            console.error(`❌ [API] [${requestId}] YouTube API 400 Error - Bad request format or invalid video ID`);
+            console.error(`❌ [API] [${requestId}] Video ID: ${videoId}`);
+          }
+
           updateApiStats("youtubeApi", false, youtubeApiError);
 
           // Fall back to youtube-transcript-api with proxy
@@ -1002,8 +1083,8 @@ app.post("/transcript/url", async (req: any, res: any) => {
               timestamp: new Date().toISOString(),
             });
 
-            // Use our proxy-enabled transcript fetcher
-            const directTranscript = await getTranscriptWithProxy(videoId, {
+            // Try the original youtube-transcript-api first
+            const directTranscript = await getTranscript(videoId, {
               lang: "en",
               country: "US",
             });
@@ -1115,14 +1196,32 @@ app.get("/api/stats", (req: any, res: any) => {
 // Helper function to process YouTube caption data
 function processYouTubeCaptionData(captionData: any): string {
   try {
-    // This is a simplified parser - you may need to adjust based on the actual format
-    // Extract text from caption data
+    console.log("🔄 Processing YouTube caption data...");
+    
+    // Convert to string if it's not already
     const textContent = captionData.toString();
+    console.log(`📝 Caption data length: ${textContent.length} characters`);
+    console.log(`📝 First 200 characters: ${textContent.substring(0, 200)}...`);
 
-    // Remove XML tags and extract just the text
+    // Check if it's SRT format
+    if (textContent.includes('-->')) {
+      console.log("📝 Detected SRT format, parsing...");
+      return parseSRTCaptions(textContent);
+    }
+    
+    // Check if it's XML/VTT format
+    if (textContent.includes('<text') || textContent.includes('WEBVTT')) {
+      console.log("📝 Detected XML/VTT format, parsing...");
+      return parseXMLCaptions(textContent);
+    }
+
+    // Fallback: treat as plain text and clean it up
+    console.log("📝 Using fallback text cleaning...");
     const cleanText = textContent
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/<[^>]*>/g, " ") // Remove XML tags
+      .replace(/\d+:\d+:\d+[.,]\d+\s*-->\s*\d+:\d+:\d+[.,]\d+/g, "") // Remove SRT timestamps
+      .replace(/\d+\s*$/gm, "") // Remove SRT sequence numbers
+      .replace(/\s+/g, " ") // Normalize whitespace
       .trim();
 
     return cleanText;
@@ -1132,7 +1231,80 @@ function processYouTubeCaptionData(captionData: any): string {
   }
 }
 
-// ✅ Summarize Transcript with Gemini
+// Helper function to parse SRT format captions
+function parseSRTCaptions(srtContent: string): string {
+  try {
+    const lines = srtContent.split('\n');
+    const textLines: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip sequence numbers and timestamps
+      if (/^\d+$/.test(line) || /\d+:\d+:\d+[.,]\d+\s*-->\s*\d+:\d+:\d+[.,]\d+/.test(line)) {
+        continue;
+      }
+      
+      // Skip empty lines
+      if (line === '') {
+        continue;
+      }
+      
+      // This should be caption text
+      textLines.push(line);
+    }
+    
+    return textLines.join(' ').replace(/\s+/g, ' ').trim();
+  } catch (error) {
+    console.error("❌ Error parsing SRT captions:", error);
+    return "";
+  }
+}
+
+// Helper function to parse XML format captions
+function parseXMLCaptions(xmlContent: string): string {
+  try {
+    // Extract text from XML tags
+    const textMatches = xmlContent.match(/<text[^>]*>(.*?)<\/text>/g);
+    
+    if (!textMatches) {
+      // Try alternative XML parsing
+      const altMatches = xmlContent.match(/>(.*?)</g);
+      if (altMatches) {
+        return altMatches
+          .map(match => match.slice(1, -1))
+          .filter(text => text.trim() && !text.includes('<'))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+      return "";
+    }
+
+    return textMatches
+      .map((match) => {
+        const textMatch = match.match(/<text[^>]*>(.*?)<\/text>/);
+        if (textMatch && textMatch[1]) {
+          return textMatch[1]
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+        }
+        return "";
+      })
+      .filter(text => text.trim())
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  } catch (error) {
+    console.error("❌ Error parsing XML captions:", error);
+    return "";
+  }
+}
+
+// ✅ Summarize Transcript with Cohere
 app.post("/summarize", async (req: any, res: any) => {
   const transcript = req.body.transcript;
 
@@ -1150,10 +1322,10 @@ app.post("/summarize", async (req: any, res: any) => {
   }
 
   try {
-    console.log("🔄 Starting Gemini summarization process...");
+    console.log("🔄 Starting Cohere summarization process...");
     console.log(`📝 Transcript length: ${transcript.length} characters`);
 
-    // Process transcript for Gemini
+    // Process transcript for Cohere
     let processedTranscript = transcript;
     const maxLength = 30000;
     if (transcript.length > maxLength) {
@@ -1161,21 +1333,30 @@ app.post("/summarize", async (req: any, res: any) => {
         transcript.substring(0, maxLength / 2) +
         "..." +
         transcript.substring(transcript.length - maxLength / 2);
-      console.log("📊 Truncated long transcript for Gemini");
+      console.log("📊 Truncated long transcript for Cohere");
     }
 
     const prompt = `Please provide a concise summary of this video transcript in 3-4 sentences: ${processedTranscript}`;
-    const result = await geminiModel.generateContent(prompt);
-    console.log("✅ Received response from Gemini");
+    
+    const response = await cohereClient.generate({
+      prompt: prompt,
+      maxTokens: 200,
+      temperature: 0.7,
+      k: 0,
+      p: 0.9,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+      stopSequences: [],
+      returnLikelihoods: 'NONE'
+    });
 
-    const response = await result.response;
-    console.log("✅ Got response object");
+    console.log("✅ Received response from Cohere");
 
-    const summary = response.text();
+    const summary = response.generations[0].text.trim();
     console.log("✅ Extracted summary text");
 
     if (!summary || summary.trim() === "") {
-      throw new Error("Empty summary received from Gemini API");
+      throw new Error("Empty summary received from Cohere API");
     }
 
     console.log(`✅ Summary length: ${summary.length} characters`);
@@ -1199,27 +1380,34 @@ app.post("/summarize", async (req: any, res: any) => {
   }
 });
 
-// ✅ Test Gemini Connection
-app.get("/test/gemini", async (req: any, res: any) => {
-  console.log("📝 Testing Gemini AI connection...");
+// ✅ Test Cohere Connection
+app.get("/test/cohere", async (req: any, res: any) => {
+  console.log("📝 Testing Cohere AI connection...");
 
   try {
     const testPrompt = "Hello! Please respond with a short greeting.";
-    const result = await geminiModel.generateContent(testPrompt);
-    const response = await result.response;
-    const text = response.text();
+    const response = await cohereClient.generate({
+      prompt: testPrompt,
+      maxTokens: 50,
+      temperature: 0.7,
+      k: 0,
+      stopSequences: [],
+      returnLikelihoods: 'NONE'
+    });
 
-    console.log("✅ Gemini AI test successful!");
+    const text = response.generations[0].text.trim();
+
+    console.log("✅ Cohere AI test successful!");
     res.json({
       status: "success",
-      message: "Gemini AI is working correctly",
+      message: "Cohere AI is working correctly",
       response: text,
     });
   } catch (error) {
-    console.error("❌ Gemini AI test failed:", error);
+    console.error("❌ Cohere AI test failed:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to connect to Gemini AI",
+      error: "Failed to connect to Cohere AI",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }
@@ -1259,3 +1447,75 @@ app.post("/api/rotate-proxy", (req: any, res: any) => {
 // Routes for video notes
 app.post("/api/videos/save", saveVideoNote);
 app.get("/api/videos/notes", getVideoNotes);
+
+// Add a new endpoint to test YouTube API with a specific video
+app.get("/test/youtube/:videoId", async (req: any, res: any) => {
+  const videoId = req.params.videoId;
+  console.log(`📝 Testing YouTube API with video ID: ${videoId}`);
+
+  if (!process.env.YOUTUBE_API_KEY) {
+    return res.status(500).json({
+      error: "YouTube API key not configured"
+    });
+  }
+
+  try {
+    // Test basic video info retrieval
+    const videoResponse = await youtube.videos.list({
+      key: process.env.YOUTUBE_API_KEY,
+      part: ["snippet"],
+      id: [videoId],
+    });
+
+    if (!videoResponse.data.items || videoResponse.data.items.length === 0) {
+      return res.status(404).json({
+        error: "Video not found",
+        videoId: videoId
+      });
+    }
+
+    const video = videoResponse.data.items[0];
+    
+    // Test captions availability
+    let captionsAvailable = false;
+    let captionError = null;
+    
+    try {
+      const captionsResponse = await youtube.captions.list({
+        key: process.env.YOUTUBE_API_KEY,
+        part: ["snippet"],
+        videoId: videoId,
+      });
+      
+      captionsAvailable = captionsResponse.data.items && captionsResponse.data.items.length > 0;
+    } catch (captionErr: any) {
+      captionError = captionErr.message;
+    }
+
+    res.json({
+      status: "success",
+      video: {
+        id: video.id,
+        title: video.snippet?.title,
+        channelTitle: video.snippet?.channelTitle,
+        publishedAt: video.snippet?.publishedAt,
+      },
+      captions: {
+        available: captionsAvailable,
+        error: captionError
+      }
+    });
+  } catch (error: any) {
+    console.error("❌ YouTube API test failed:", error);
+    
+    // Sanitize error message
+    const sanitizedMessage = error.message ? error.message.replace(/key=[^&\s]+/g, 'key=***HIDDEN***') : 'Unknown error';
+    
+    res.status(500).json({
+      error: "YouTube API test failed",
+      details: sanitizedMessage,
+      status: error.status || 'unknown',
+      videoId: videoId
+    });
+  }
+});
