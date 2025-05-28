@@ -136,7 +136,7 @@ function createFloatingUI() {
             // Show loading state
             summarizeIcon.textContent = "hourglass_empty";
             // Get transcript
-            const transcriptResponse = await fetch(`http://localhost:5000/transcript/${videoId}`);
+            const transcriptResponse = await fetch(`https://api.supadata.ai/v1/youtube/transcript?video_id=${videoId}`);
             const transcriptData = await transcriptResponse.json();
             if (transcriptData.error) {
                 throw new Error(transcriptData.error);
@@ -785,3 +785,4 @@ function makeDraggable(element) {
         document.onmousemove = null;
     }
 }
+//# sourceMappingURL=content.js.map
