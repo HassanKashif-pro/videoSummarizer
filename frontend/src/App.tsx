@@ -260,6 +260,7 @@ function seekToTimestamp(timestamp: string) {
 
       {/* Notes Panel */}
       <div className="notes-panel">
+        <div className="notes-panel-header">John Doe</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <h2>Notes</h2>
           <button
@@ -314,7 +315,7 @@ function seekToTimestamp(timestamp: string) {
                       onClick={() => handleDeleteNote(note._id!)}
                       title="Delete note"
                     >
-                      🗑️
+                      <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
                     </button>
                   )}
                 </div>
