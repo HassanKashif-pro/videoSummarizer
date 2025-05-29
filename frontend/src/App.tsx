@@ -3,6 +3,16 @@ import Sidebar from "./components/Sidebar.tsx";
 import axios from "axios";
 import "./styles.css"; // Import the CSS file for App component
 
+// Add these type declarations at the top of the file, after the imports
+declare global {
+  interface Window {
+    YT: {
+      Player: new (element: Element, options: any) => any;
+    };
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
 interface Note {
   _id?: string; // MongoDB document ID
   category: string;
@@ -32,6 +42,8 @@ function App() {
   const [videoTitle, setVideoTitle] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [shouldRefreshNotes, setShouldRefreshNotes] = useState(0);
+  const [player, setPlayer] = useState<any>(null);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
 
   // Function to refresh notes
   const refreshNotes = () => {
@@ -112,74 +124,129 @@ function App() {
     return () => window.removeEventListener("message", handleMessage);
   }, [refreshNotes]); // Added refreshNotes to dependency array
 
-  
-function getVideoId(url: string): string {
-  const match = url.match(/[?&]v=([^&]+)/);
-  return match ? match[1] : "";
-}
+  // Update the YouTube iframe API initialization
+  useEffect(() => {
+    console.log("Initializing YouTube player for video:", videoUrl);
+    
+    // Load the YouTube iframe API
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
-// Helper function to parse timestamp string to seconds (like in extension)
-function parseTimestamp(timestampString: string): number {
-  const parts = timestampString.split(":").map(Number);
-  if (parts.length === 2) {
-    // MM:SS
-    const [minutes, seconds] = parts;
-    return minutes * 60 + seconds;
-  } else if (parts.length === 3) {
-    // H:MM:SS
-    const [hours, minutes, seconds] = parts;
-    return hours * 3600 + minutes * 60 + seconds;
-  }
-  return 0;
-}
-
-// Helper function to extract video timestamp from ISO string or return as-is if already formatted
-function formatTimestamp(timestamp: string): string {
-  // If it's already in HH:MM:SS or MM:SS, return as is
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timestamp)) return timestamp;
-  
-  // If it's an ISO string, try to extract the time part
-  if (timestamp.includes('T') && timestamp.includes('Z')) {
-    // Extract time from ISO string like "2025-05-28T17:08:13.936Z"
-    const timePart = timestamp.split('T')[1]?.split('.')[0]; // Gets "17:08:13"
-    if (timePart) {
-      const [hours, minutes, seconds] = timePart.split(':').map(Number);
-      // Convert to MM:SS format (or H:MM:SS if needed)
-      if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    // Initialize the player when the API is ready
+    window.onYouTubeIframeAPIReady = () => {
+      console.log("YouTube API is ready, initializing player...");
+      const iframe = document.querySelector("iframe");
+      if (iframe) {
+        const newPlayer = new window.YT.Player(iframe, {
+          events: {
+            'onReady': (event: any) => {
+              console.log("YouTube player is ready!");
+              setPlayer(event.target);
+              setIsPlayerReady(true);
+            },
+            'onStateChange': (event: any) => {
+              console.log("Player state changed:", event.data);
+            },
+            'onError': (event: any) => {
+              console.error("YouTube player error:", event.data);
+            }
+          }
+        });
       } else {
-        return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+        console.error("Could not find iframe element");
       }
+    };
+
+    return () => {
+      console.log("Cleaning up YouTube player");
+      if (player) {
+        player.destroy();
+        setPlayer(null);
+        setIsPlayerReady(false);
+      }
+    };
+  }, [videoUrl]); // Re-initialize when video URL changes
+
+  // Update the seekToTimestamp function to use URL parameters
+  function seekToTimestamp(timestamp: string) {
+    try {
+      // Format the timestamp first, then parse it to seconds
+      const formattedTimestamp = formatTimestamp(timestamp);
+      const seconds = parseTimestamp(formattedTimestamp);
+      console.log("Seeking to seconds:", seconds);
+      
+      // Get the current video ID
+      const videoId = getVideoId(videoUrl);
+      if (!videoId) {
+        console.error("No video ID found");
+        return;
+      }
+
+      // Create a new URL with the timestamp parameter
+      const newUrl = `https://www.youtube.com/embed/${videoId}?start=${seconds}&autoplay=1`;
+      
+      // Update the iframe src
+      const iframe = document.querySelector("iframe");
+      if (iframe) {
+        iframe.src = newUrl;
+      }
+    } catch (error) {
+      console.error("Error seeking to timestamp:", error);
     }
   }
-  
-  // If it's a number (seconds), format as MM:SS
-  const seconds = Number(timestamp);
-  if (!isNaN(seconds)) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  }
-  
-  return timestamp;
-}
 
-function seekToTimestamp(timestamp: string) {
-  const iframe = document.querySelector("iframe");
-  if (iframe) {
-    // Format the timestamp first, then parse it to seconds
-    const formattedTimestamp = formatTimestamp(timestamp);
-    const seconds = parseTimestamp(formattedTimestamp);
-    iframe.contentWindow?.postMessage(
-      JSON.stringify({
-        event: "command",
-        func: "seekTo",
-        args: [seconds, true],
-      }),
-      "*"
-    );
+  function getVideoId(url: string): string {
+    const match = url.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : "";
   }
-}
+
+  // Helper function to parse timestamp string to seconds (like in extension)
+  function parseTimestamp(timestampString: string): number {
+    const parts = timestampString.split(":").map(Number);
+    if (parts.length === 2) {
+      // MM:SS
+      const [minutes, seconds] = parts;
+      return minutes * 60 + seconds;
+    } else if (parts.length === 3) {
+      // H:MM:SS
+      const [hours, minutes, seconds] = parts;
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+    return 0;
+  }
+
+  // Helper function to extract video timestamp from ISO string or return as-is if already formatted
+  function formatTimestamp(timestamp: string): string {
+    // If it's already in HH:MM:SS or MM:SS, return as is
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timestamp)) return timestamp;
+    
+    // If it's an ISO string, try to extract the time part
+    if (timestamp.includes('T') && timestamp.includes('Z')) {
+      // Extract time from ISO string like "2025-05-28T17:08:13.936Z"
+      const timePart = timestamp.split('T')[1]?.split('.')[0]; // Gets "17:08:13"
+      if (timePart) {
+        const [hours, minutes, seconds] = timePart.split(':').map(Number);
+        // Convert to MM:SS format (or H:MM:SS if needed)
+        if (hours > 0) {
+          return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        } else {
+          return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+        }
+      }
+    }
+    
+    // If it's a number (seconds), format as MM:SS
+    const seconds = Number(timestamp);
+    if (!isNaN(seconds)) {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s < 10 ? "0" : ""}${s}`;
+    }
+    
+    return timestamp;
+  }
 
   // Function to add a new note with duplicate checking
   const addNewNote = async (newNote: Note) => {
@@ -245,7 +312,7 @@ function seekToTimestamp(timestamp: string) {
             <iframe
               width="100%"
               height="500"
-              src={`https://www.youtube.com/embed/${getVideoId(videoUrl)}`}
+              src={`https://www.youtube.com/embed/${getVideoId(videoUrl)}?autoplay=0`}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -325,12 +392,6 @@ function seekToTimestamp(timestamp: string) {
       </div>
     </div>
   );
-}
-
-// Helper function to extract video ID from URL
-function getVideoId(url: string): string {
-  const match = url.match(/[?&]v=([^&]+)/);
-  return match ? match[1] : "";
 }
 
 export default App;
