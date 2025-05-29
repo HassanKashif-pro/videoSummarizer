@@ -4,6 +4,7 @@ import axios from "axios";
 import "./styles.css"; // Import the CSS file for App component
 
 interface Note {
+  _id?: string; // MongoDB document ID
   category: string;
   videoId: string;
   videoTitle: string;
@@ -40,22 +41,26 @@ function App() {
   // Load saved notes from backend
   useEffect(() => {
     const fetchNotes = async () => {
+      console.log("Fetching notes from backend...");
       try {
         const response = await axios.get(
           "http://localhost:5000/api/videos/notes"
         );
+        console.log("Received notes:", response.data);
         if (response.data) {
           // Group notes by category
-          const groupedNotes = categories.map((category) => {
-            const categoryNotes = response.data.filter(
-              (note: Note) => note.category === category.name
-            );
-            return {
-              ...category,
-              notes: categoryNotes,
-            };
+          setCategories((prevCategories) => {
+            return prevCategories.map((category) => {
+              const categoryNotes = response.data.filter(
+                (note: Note) => note.category === category.name
+              );
+              return {
+                ...category,
+                notes: categoryNotes,
+              };
+            });
           });
-          setCategories(groupedNotes);
+          console.log("Categories updated");
         }
       } catch (error) {
         console.error("Error fetching notes:", error);
@@ -63,11 +68,26 @@ function App() {
     };
 
     fetchNotes();
-  }, [shouldRefreshNotes, categories]); // Added categories to dependency array to reflect potential category changes
+  }, [shouldRefreshNotes]); // Removed categories from dependency array to prevent infinite loop
 
   const handleAddCategory = (newCategoryName: string) => {
     if (!newCategoryName.trim()) return;
     setCategories([...categories, { name: newCategoryName.trim(), notes: [] }]);
+  };
+
+  // Function to delete a note
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const response = await axios.delete(
+        `http://localhost:5000/api/videos/notes/${noteId}`
+      );
+      if (response.status === 200) {
+        // Refresh notes after successful deletion
+        refreshNotes();
+      }
+    } catch (error) {
+      console.error("Error deleting note:", error);
+    }
   };
 
   // Function to handle video selection
@@ -240,13 +260,29 @@ function seekToTimestamp(timestamp: string) {
 
       {/* Notes Panel */}
       <div className="notes-panel">
-        <h2>Notes</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h2>Notes</h2>
+          <button
+            onClick={refreshNotes}
+            style={{
+              padding: '5px 10px',
+              fontSize: '0.8em',
+              backgroundColor: 'var(--yt-red)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Refresh
+          </button>
+        </div>
         <div className="notes-container">
           {categories
             .find((cat) => cat.name === selectedCategory)
             ?.notes.filter((note) => note.videoUrl === videoUrl)
             .map((note, index) => (
-              <div key={index} className="content-item">
+              <div key={note._id || index} className="content-item">
                 <div className="content-area">
                   {note.content.startsWith('data:image/') ? (
                     <img 
@@ -258,19 +294,30 @@ function seekToTimestamp(timestamp: string) {
                     <div dangerouslySetInnerHTML={{ __html: note.content }} />
                   )}
                 </div>
-                {note.timestamp ? (
-                  <div className="timestamp-container">
+                <div className="note-actions">
+                  {note.timestamp ? (
+                    <div className="timestamp-container">
+                      <button
+                        className="clickable-timestamp"
+                        onClick={() => seekToTimestamp(note.timestamp)}
+                      >
+                        <span className="timestamp-play-icon">▶</span>
+                        <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="no-timestamp">No Timestamp</span>
+                  )}
+                  {note._id && (
                     <button
-                      className="clickable-timestamp"
-                      onClick={() => seekToTimestamp(note.timestamp)}
+                      className="delete-note-btn"
+                      onClick={() => handleDeleteNote(note._id!)}
+                      title="Delete note"
                     >
-                      <span className="timestamp-play-icon">▶</span>
-                      <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
+                      🗑️
                     </button>
-                  </div>
-                ) : (
-                  "No Timestamp"
-                )}
+                  )}
+                </div>
               </div>
             ))}
         </div>

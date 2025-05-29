@@ -195,6 +195,41 @@ export const getVideoNotes = async (req: Request, res: Response) => {
   }
 };
 
+// Delete a video note
+export const deleteVideoNote = async (req: Request, res: Response) => {
+  try {
+    const { noteId } = req.params;
+    
+    console.log("Delete request received for note ID:", noteId);
+    
+    if (!noteId) {
+      return res.status(400).json({ error: "Missing note ID" });
+    }
+
+    const deletedNote = await VideoNote.findByIdAndDelete(noteId);
+    
+    if (!deletedNote) {
+      console.log("Note not found with ID:", noteId);
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    console.log("Successfully deleted note:", deletedNote);
+    
+    // Also return all remaining notes to help with debugging
+    const remainingNotes = await VideoNote.find();
+    console.log("Remaining notes count:", remainingNotes.length);
+    
+    res.status(200).json({ 
+      message: "Note deleted successfully", 
+      deletedNote,
+      remainingNotesCount: remainingNotes.length
+    });
+  } catch (error) {
+    console.error("Error deleting video note:", error);
+    res.status(500).json({ error: "Failed to delete video note" });
+  }
+};
+
 // Add this new function to get video category
 export const getVideoCategory = async (req: Request, res: Response) => {
   try {

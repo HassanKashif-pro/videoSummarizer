@@ -13,6 +13,7 @@ const { connectDB } = require("./services/database");
 const {
   saveVideoNote,
   getVideoNotes,
+  deleteVideoNote,
 } = require("./controllers/videoController");
 
 // Add type for Cohere client
@@ -1517,6 +1518,7 @@ app.post("/api/rotate-proxy", (req: any, res: any) => {
 // Routes for video notes
 app.post("/api/videos/save", saveVideoNote);
 app.get("/api/videos/notes", getVideoNotes);
+app.delete("/api/videos/notes/:noteId", deleteVideoNote);
 
 // Add a new endpoint to test YouTube API with a specific video
 app.get("/test/youtube/:videoId", async (req: any, res: any) => {
