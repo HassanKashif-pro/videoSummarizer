@@ -145,11 +145,12 @@ const Sidebar: React.FC<SidebarProps> = ({
               <ul className="notebook-list">
                 {notebooks.map((notebook) => (
                   <li key={notebook.name} className="notebook-item">
-                    <div className="notebook-header">
-                      <span
-                        className="notebook-toggle"
-                        onClick={() => toggleNotebook(notebook.name)}
-                      >
+                    <div
+                      className="notebook-header"
+                      onClick={() => toggleNotebook(notebook.name)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <span className="notebook-toggle">
                         <i
                           className={`fas ${
                             expandedNotebook === notebook.name
@@ -166,7 +167,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                         )}
                         {notebook.name}
                       </span>
-                      <div className="notebook-options">
+                      <div
+                        className="notebook-options"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <i
                           className="fas fa-ellipsis-v options-icon"
                           onClick={(e) => handleOptionsClick(e, notebook.name)}
@@ -177,17 +181,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                             ref={optionsMenuRef}
                           >
                             <button
-                              onClick={() =>
-                                handleOptionClick("Rename", notebook.name)
-                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOptionClick("Rename", notebook.name);
+                              }}
                             >
                               <i className="fas fa-edit"></i>
                               Rename
                             </button>
                             <button
-                              onClick={() =>
-                                handleOptionClick("Delete", notebook.name)
-                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOptionClick("Delete", notebook.name);
+                              }}
                             >
                               <i className="fas fa-trash"></i>
                               Delete

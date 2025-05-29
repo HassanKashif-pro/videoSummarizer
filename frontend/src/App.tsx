@@ -92,32 +92,74 @@ function App() {
     return () => window.removeEventListener("message", handleMessage);
   }, [refreshNotes]); // Added refreshNotes to dependency array
 
-  function timestampToSeconds(timestamp: string): number {
-    const parts = timestamp.split(":").map(Number);
-    if (parts.length === 2) {
-      const [minutes, seconds] = parts;
-      return minutes * 60 + seconds;
-    } else if (parts.length === 3) {
-      const [hours, minutes, seconds] = parts;
-      return hours * 3600 + minutes * 60 + seconds;
-    }
-    return 0;
-  }
+  
+function getVideoId(url: string): string {
+  const match = url.match(/[?&]v=([^&]+)/);
+  return match ? match[1] : "";
+}
 
-  function seekToTimestamp(timestamp: string) {
-    const iframe = document.querySelector("iframe");
-    if (iframe) {
-      const seconds = timestampToSeconds(timestamp);
-      iframe.contentWindow?.postMessage(
-        JSON.stringify({
-          event: "command",
-          func: "seekTo",
-          args: [seconds, true],
-        }),
-        "*"
-      );
+// Helper function to parse timestamp string to seconds (like in extension)
+function parseTimestamp(timestampString: string): number {
+  const parts = timestampString.split(":").map(Number);
+  if (parts.length === 2) {
+    // MM:SS
+    const [minutes, seconds] = parts;
+    return minutes * 60 + seconds;
+  } else if (parts.length === 3) {
+    // H:MM:SS
+    const [hours, minutes, seconds] = parts;
+    return hours * 3600 + minutes * 60 + seconds;
+  }
+  return 0;
+}
+
+// Helper function to extract video timestamp from ISO string or return as-is if already formatted
+function formatTimestamp(timestamp: string): string {
+  // If it's already in HH:MM:SS or MM:SS, return as is
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timestamp)) return timestamp;
+  
+  // If it's an ISO string, try to extract the time part
+  if (timestamp.includes('T') && timestamp.includes('Z')) {
+    // Extract time from ISO string like "2025-05-28T17:08:13.936Z"
+    const timePart = timestamp.split('T')[1]?.split('.')[0]; // Gets "17:08:13"
+    if (timePart) {
+      const [hours, minutes, seconds] = timePart.split(':').map(Number);
+      // Convert to MM:SS format (or H:MM:SS if needed)
+      if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      } else {
+        return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+      }
     }
   }
+  
+  // If it's a number (seconds), format as MM:SS
+  const seconds = Number(timestamp);
+  if (!isNaN(seconds)) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  }
+  
+  return timestamp;
+}
+
+function seekToTimestamp(timestamp: string) {
+  const iframe = document.querySelector("iframe");
+  if (iframe) {
+    // Format the timestamp first, then parse it to seconds
+    const formattedTimestamp = formatTimestamp(timestamp);
+    const seconds = parseTimestamp(formattedTimestamp);
+    iframe.contentWindow?.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: "seekTo",
+        args: [seconds, true],
+      }),
+      "*"
+    );
+  }
+}
 
   // Function to add a new note with duplicate checking
   const addNewNote = async (newNote: Note) => {
@@ -205,7 +247,17 @@ function App() {
             ?.notes.filter((note) => note.videoUrl === videoUrl)
             .map((note, index) => (
               <div key={index} className="content-item">
-                <div className="content-area">{note.content}</div>
+                <div className="content-area">
+                  {note.content.startsWith('data:image/') ? (
+                    <img 
+                      src={note.content} 
+                      alt="Screenshot" 
+                      style={{ maxWidth: '100%', height: 'auto', borderRadius: '4px' }}
+                    />
+                  ) : (
+                    <div dangerouslySetInnerHTML={{ __html: note.content }} />
+                  )}
+                </div>
                 {note.timestamp ? (
                   <div className="timestamp-container">
                     <button
@@ -213,7 +265,7 @@ function App() {
                       onClick={() => seekToTimestamp(note.timestamp)}
                     >
                       <span className="timestamp-play-icon">▶</span>
-                      <span className="timestamp-text">{note.timestamp}</span>
+                      <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
                     </button>
                   </div>
                 ) : (

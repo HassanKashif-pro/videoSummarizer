@@ -148,7 +148,7 @@ const fetchVideoInfo = async (videoId: string) => {
 // Save video note to database
 export const saveVideoNote = async (req: Request, res: Response) => {
   try {
-    const { videoUrl, content, category, isPinned } = req.body;
+    const { videoUrl, content, category, isPinned, timestamp } = req.body;
 
     if (!videoUrl) {
       return res.status(400).json({ error: "Missing video URL" });
@@ -171,7 +171,7 @@ export const saveVideoNote = async (req: Request, res: Response) => {
       content,
       category,
       isPinned,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp || "0:00", // Use the actual video timestamp, not system time
     });
 
     // Save to database
