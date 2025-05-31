@@ -16,13 +16,13 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ videoId }) => {
     try {
       // First, get the transcript
       const transcriptResponse = await axios.get(
-        `http://localhost:5000/transcript/${videoId}`
+        `http://localhost:3001/transcript/${videoId}`
       );
       const { transcript } = transcriptResponse.data;
 
       // Then, get the summary
       const summaryResponse = await axios.post(
-        "http://localhost:5000/summarize",
+        "http://localhost:3001/summarize",
         {
           transcript,
         }

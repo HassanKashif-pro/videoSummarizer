@@ -57,7 +57,7 @@ function App() {
       console.log("Fetching notes from backend...");
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/videos/notes"
+          "http://localhost:3001/api/videos/notes"
         );
         console.log("Received notes:", response.data);
         if (response.data) {
@@ -92,7 +92,7 @@ function App() {
   const handleDeleteNote = async (noteId: string) => {
     try {
       const response = await axios.delete(
-        `http://localhost:5000/api/videos/notes/${noteId}`
+        `http://localhost:3001/api/videos/notes/${noteId}`
       );
       if (response.status === 200) {
         // Refresh notes after successful deletion
@@ -260,7 +260,7 @@ function App() {
       if (!videoExists) {
         // If video doesn't exist, add the new note
         const response = await axios.post(
-          "http://localhost:5000/api/videos/notes",
+          "http://localhost:3001/api/videos/notes",
           newNote
         );
         if (response.data) {
@@ -269,7 +269,7 @@ function App() {
       } else {
         // If video exists, just add the note to the existing video
         const response = await axios.post(
-          "http://localhost:5000/api/videos/notes",
+          "http://localhost:3001/api/videos/notes",
           {
             ...newNote,
             videoTitle:

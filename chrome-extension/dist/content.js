@@ -451,7 +451,6 @@ function createFloatingUI() {
         }
         // Save each content item separately
         let savedCount = 0;
-        // Use Promise.all to properly handle async operations
         await Promise.all(Array.from(contentItems).map(async (item) => {
             const contentArea = item.querySelector(".content-area");
             const timestampContainer = item.querySelector(".timestamp-container");
@@ -460,9 +459,7 @@ function createFloatingUI() {
                 const timestamp = timestampText?.textContent || "0:00";
                 // First, try to find an image
                 const imgElement = contentArea.querySelector("img");
-                console.log("Found image element:", imgElement);
                 if (imgElement && imgElement.src) {
-                    console.log("Saving image with src:", imgElement.src.substring(0, 50) + "...");
                     // Check if there's an annotation
                     const annotationElement = contentArea.querySelector(".image-text-input");
                     const annotationText = annotationElement?.textContent?.trim();

@@ -23,7 +23,7 @@ type CohereClient = any; // You can replace this with proper type if available
 const youtube = google.youtube("v3");
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 // Add these constants after the imports
 const LOG_DIR = path.join(__dirname, "logs");

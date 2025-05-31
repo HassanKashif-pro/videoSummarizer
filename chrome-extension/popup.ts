@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
         content: payload.contentType === 'image' ? '[IMAGE DATA]' : payload.content
       });
 
-      const response = await fetch("http://localhost:5000/api/videos/save", {
+      const response = await fetch("http://localhost:3001/api/videos/save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
