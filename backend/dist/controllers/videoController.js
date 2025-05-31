@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
+exports.deleteVideoNote = exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
 const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const youtube_transcript_api_1 = require("youtube-transcript-api");
@@ -128,7 +128,15 @@ const fetchVideoInfo = (videoId) => __awaiter(void 0, void 0, void 0, function* 
 // Save video note to database
 const saveVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { videoUrl, content, category, isPinned } = req.body;
+        const { videoUrl, content, category, isPinned, timestamp, contentType } = req.body;
+        console.log('🔍 Saving note with:', {
+            contentType,
+            contentPreview: contentType === 'image'
+                ? `[IMAGE DATA - ${content.length} chars]`
+                : content.substring(0, 100),
+            timestamp,
+            category: category || "Uncategorized"
+        });
         if (!videoUrl) {
             return res.status(400).json({ error: "Missing video URL" });
         }
@@ -143,18 +151,26 @@ const saveVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             videoId,
             videoTitle: videoInfo.title,
             videoUrl,
-            contentType: "text",
+            contentType: contentType || "text",
             content,
-            category,
+            category: category || "Uncategorized",
             isPinned,
-            timestamp: new Date().toISOString(),
+            timestamp: timestamp || "0:00",
         });
         // Save to database
-        yield note.save();
-        res.status(201).json(note);
+        const savedNote = yield note.save();
+        console.log('✅ Note saved successfully:', {
+            id: savedNote._id,
+            contentType: savedNote.contentType,
+            category: savedNote.category,
+            contentPreview: savedNote.contentType === 'image'
+                ? `[IMAGE DATA - ${savedNote.content.length} chars]`
+                : savedNote.content.substring(0, 100)
+        });
+        res.status(201).json(savedNote);
     }
     catch (error) {
-        console.error("Error saving video note:", error);
+        console.error("❌ Error saving video note:", error);
         res.status(500).json({ error: "Failed to save video note" });
     }
 });
@@ -163,11 +179,121 @@ exports.saveVideoNote = saveVideoNote;
 const getVideoNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const notes = yield database_1.VideoNote.find().sort({ timestamp: -1 });
+        console.log('📥 Retrieved notes:', notes.map(note => ({
+            id: note._id,
+            contentType: note.contentType,
+            contentPreview: note.contentType === 'image'
+                ? `[IMAGE DATA - ${note.content.length} chars]`
+                : note.content.substring(0, 100)
+        })));
         res.json(notes);
     }
     catch (error) {
-        console.error("Error fetching video notes:", error);
+        console.error("❌ Error fetching video notes:", error);
         res.status(500).json({ error: "Failed to fetch video notes" });
     }
 });
 exports.getVideoNotes = getVideoNotes;
+// Delete a video note
+const deleteVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { noteId } = req.params;
+        console.log("Delete request received for note ID:", noteId);
+        if (!noteId) {
+            return res.status(400).json({ error: "Missing note ID" });
+        }
+        const deletedNote = yield database_1.VideoNote.findByIdAndDelete(noteId);
+        if (!deletedNote) {
+            console.log("Note not found with ID:", noteId);
+            return res.status(404).json({ error: "Note not found" });
+        }
+        console.log("Successfully deleted note:", deletedNote);
+        // Also return all remaining notes to help with debugging
+        const remainingNotes = yield database_1.VideoNote.find();
+        console.log("Remaining notes count:", remainingNotes.length);
+        res.status(200).json({
+            message: "Note deleted successfully",
+            deletedNote,
+            remainingNotesCount: remainingNotes.length
+        });
+    }
+    catch (error) {
+        console.error("Error deleting video note:", error);
+        res.status(500).json({ error: "Failed to delete video note" });
+    }
+});
+exports.deleteVideoNote = deleteVideoNote;
+// Add this new function to get video category
+// export const getVideoCategory = async (req: Request, res: Response) => {
+//   try {
+//     const videoId = req.params.videoId;
+//     if (!videoId) {
+//       return res.status(400).json({ error: "Missing video ID" });
+//     }
+//     const response = await axios.get(
+//       `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`
+//     );
+//     if (!response.data.items || response.data.items.length === 0) {
+//       return res.status(404).json({ error: "Video not found" });
+//     }
+//     const videoData = response.data.items[0].snippet;
+//     const categoryId = videoData.categoryId;
+//     const tags = videoData.tags || [];
+//     const description = videoData.description || "";
+//     const title = videoData.title || "";
+//     console.log("YouTube API videoData:", videoData);
+//     console.log("YouTube API categoryId:", categoryId);
+//     console.log("Video title:", title);
+//     console.log("Video description:", description);
+//     console.log("Video tags:", tags);
+//     // Map YouTube categoryId to our categories
+//     let category = "Uncategorized";
+//     if (categoryId === "27") {
+//       category = "Education";
+//     } else if (categoryId === "20") {
+//       category = "Gaming";
+//     } else if (categoryId === "28") {
+//       category = "Science & Technology";
+//     } else if (categoryId === "24" || categoryId === "10") {
+//       category = "Entertainment";
+//     }
+//     // Fallback: Check title, description, and tags for keywords if still Uncategorized
+//     if (category === "Uncategorized") {
+//       const content = `${title} ${description} ${tags.join(" ")}`.toLowerCase();
+//       if (
+//         content.includes("education") ||
+//         content.includes("tutorial") ||
+//         content.includes("learn") ||
+//         content.includes("course")
+//       ) {
+//         category = "Education";
+//       } else if (
+//         content.includes("game") ||
+//         content.includes("gaming") ||
+//         content.includes("gameplay")
+//       ) {
+//         category = "Gaming";
+//       } else if (
+//         content.includes("science") ||
+//         content.includes("tech") ||
+//         content.includes("technology")
+//       ) {
+//         category = "Science & Technology";
+//       } else if (
+//         content.includes("entertainment") ||
+//         content.includes("music") ||
+//         content.includes("comedy")
+//       ) {
+//         category = "Entertainment";
+//       }
+//     }
+//     console.log("Final chosen category:", category);
+//     res.json({ category });
+//   } catch (error: any) {
+//     console.error(
+//       "Error fetching video category:",
+//       error.response?.data || error.message || error
+//     );
+//     res.status(500).json({ error: "Failed to fetch video category" });
+//   }
+// };

@@ -2,7 +2,7 @@ import express from "express";
 import {
   getVideoSummary,
   saveVideoNote,
-  getVideoCategory,
+  // getVideoCategory,
 } from "../controllers/videoController";
 
 const router = express.Router();
@@ -25,14 +25,14 @@ router.post("/save", async (req, res) => {
   }
 });
 
-// Add new route for getting video category
-router.get("/category/:videoId", async (req, res) => {
-  try {
-    await getVideoCategory(req, res);
-  } catch (error) {
-    console.error("Error in video category route:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+// // Add new route for getting video category
+// router.get("/category/:videoId", async (req, res) => {
+//   try {
+//     await getVideoCategory(req, res);
+//   } catch (error) {
+//     console.error("Error in video category route:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
 
 export default router;

@@ -536,7 +536,6 @@ function createFloatingUI() {
 
     // Save each content item separately
     let savedCount = 0;
-    // Use Promise.all to properly handle async operations
     await Promise.all(
       Array.from(contentItems).map(async (item) => {
         const contentArea = item.querySelector(".content-area");
@@ -547,11 +546,48 @@ function createFloatingUI() {
 
         if (contentArea && contentArea.innerHTML.trim()) {
           const timestamp = timestampText?.textContent || "0:00";
-          const saved = await saveNoteToBackend(
-            contentArea.innerHTML,
-            timestamp
-          );
-          if (saved) savedCount++;
+          
+          // First, try to find an image
+          const imgElement = contentArea.querySelector("img");
+          
+          if (imgElement && imgElement.src) {
+            // Check if there's an annotation
+            const annotationElement = contentArea.querySelector(".image-text-input");
+            const annotationText = annotationElement?.textContent?.trim();
+            
+            if (annotationText) {
+              // Save both image and annotation
+              const contentToSave = JSON.stringify({
+                image: imgElement.src,
+                annotation: annotationText
+              });
+              const saved = await saveNoteToBackend(
+                contentToSave,
+                timestamp,
+                "image+annotation"
+              );
+              if (saved) savedCount++;
+            } else {
+              // Save just the image
+              const saved = await saveNoteToBackend(
+                imgElement.src,
+                timestamp,
+                "image"
+              );
+              if (saved) savedCount++;
+            }
+          } else {
+            // If no image found, save as text
+            const textContent = cleanContent(contentArea.innerHTML);
+            if (textContent && !textContent.includes("text_fields")) {
+              const saved = await saveNoteToBackend(
+                textContent,
+                timestamp,
+                "text"
+              );
+              if (saved) savedCount++;
+            }
+          }
         }
       })
     );
@@ -589,22 +625,27 @@ function createFloatingUI() {
 
   // Add this function to clean up content
   function cleanContent(content: string): string {
+    // NEVER clean image data - return as-is
+    if (content.startsWith('data:image/') || content.startsWith('blob:')) {
+      return content;
+    }
+  
     // Create a temporary div to handle HTML content
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = content;
-
+  
     // First, handle line breaks and convert them to newlines
     let html = tempDiv.innerHTML
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/p>/gi, "\n")
       .replace(/<div>/gi, "\n")
       .replace(/<\/div>/gi, "\n");
-
+  
     // Create another temp div to decode HTML entities
     const decodingDiv = document.createElement("div");
     decodingDiv.innerHTML = html;
     html = decodingDiv.textContent || decodingDiv.innerText || "";
-
+  
     // Clean up the text
     return (
       html
@@ -624,89 +665,115 @@ function createFloatingUI() {
   }
 
   // Function to get video category
-  async function getVideoCategory(videoId: string): Promise<string> {
-    try {
-      const response = await fetch(
-        `http://localhost:5000/api/videos/category/${videoId}`
-      );
-      const data = await response.json();
+  // async function getVideoCategory(videoId: string): Promise<string> {
+  //   try {
+  //     const response = await fetch(
+  //       `http://localhost:5000/api/videos/category/${videoId}`
+  //     );
+  //     const data = await response.json();
 
-      if (data.error) {
-        console.error("Error getting video category:", data.error);
-        return "Uncategorized";
-      }
+  //     if (data.error) {
+  //       console.error("Error getting video category:", data.error);
+  //       return "Uncategorized";
+  //     }
 
-      // Map YouTube categories to our categories
-      const category = data.category;
-      if (category.includes("Science") || category.includes("Technology")) {
-        return "Science & Technology";
-      } else if (
-        category.includes("Education") ||
-        category.includes("Learning")
-      ) {
-        return "Education";
-      } else if (category.includes("Gaming") || category.includes("Game")) {
-        return "Gaming";
-      } else if (
-        category.includes("Entertainment") ||
-        category.includes("Music") ||
-        category.includes("Comedy")
-      ) {
-        return "Entertainment";
-      }
+  //     // Map YouTube categories to our categories
+  //     const category = data.category;
+  //     if (category.includes("Science") || category.includes("Technology")) {
+  //       return "Science & Technology";
+  //     } else if (
+  //       category.includes("Education") ||
+  //       category.includes("Learning")
+  //     ) {
+  //       return "Education";
+  //     } else if (category.includes("Gaming") || category.includes("Game")) {
+  //       return "Gaming";
+  //     } else if (
+  //       category.includes("Entertainment") ||
+  //       category.includes("Music") ||
+  //       category.includes("Comedy")
+  //     ) {
+  //       return "Entertainment";
+  //     }
 
-      return "Uncategorized";
-    } catch (error) {
-      console.error("Error fetching video category:", error);
-      return "Uncategorized";
-    }
-  }
+  //     return "Uncategorized";
+  //   } catch (error) {
+  //     console.error("Error fetching video category:", error);
+  //     return "Uncategorized";
+  //   }
+  // }
 
-  async function saveNoteToBackend(content: string, timestamp: string) {
+  async function saveNoteToBackend(content: string, timestamp: string, contentType: string) {
     try {
       const videoId = new URLSearchParams(window.location.search).get("v");
       if (!videoId) {
         showNotification("No video ID found!");
         return false;
       }
-
-      // Clean the content before saving
-      const cleanedContent = cleanContent(content);
-
-      // Don't save if content is empty after cleaning
-      if (!cleanedContent.trim()) {
-        return false;
+  
+      // Handle content based on type
+      let processedContent = content;
+      
+      if (contentType === "image") {
+        // For images, don't clean the content - preserve the data URL or blob URL
+        if (!content.startsWith('data:image/') && !content.startsWith('blob:') && !content.startsWith('http')) {
+          showNotification("Invalid image format!");
+          return false;
+        }
+        processedContent = content; // Keep image data as-is
+      } else {
+        // Clean text content
+        const cleanedContent = cleanContent(content);
+        
+        // Don't save if content is empty after cleaning
+        if (!cleanedContent.trim()) {
+          showNotification("Content is empty after cleaning!");
+          return false;
+        }
+        processedContent = cleanedContent;
       }
-
+  
       // Get video category before saving
-      const category = await getVideoCategory(videoId);
-
+      // const category = await getVideoCategory(videoId);
+  
+      const noteData = {
+        videoId: videoId,
+        videoTitle: document.title.replace(" - YouTube", ""),
+        videoUrl: window.location.href,
+        content: processedContent, // Use processed content
+        contentType: contentType,
+        // category: category,
+        isPinned: false,
+        timestamp: timestamp,
+      };
+  
+      console.log('Saving note data:', {
+        ...noteData,
+        content: contentType === "image" ? `[IMAGE DATA - ${content.length} chars]` : noteData.content.substring(0, 100) + '...'
+      });
+  
       const response = await fetch("http://localhost:5000/api/videos/save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          videoId: videoId,
-          videoTitle: document.title.replace(" - YouTube", ""),
-          videoUrl: window.location.href,
-          content: cleanedContent,
-          contentType: "text",
-          category: category,
-          isPinned: false,
-          timestamp: timestamp,
-        }),
+        body: JSON.stringify(noteData),
       });
-
+  
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('Note saved successfully:', responseData);
+        
         // Notify the main app to refresh notes
         window.postMessage(
           { type: "REFRESH_NOTES", source: "video_summarizer" },
           "*"
         );
+        showNotification("Note saved successfully!");
         return true;
       } else {
         const errorData = await response.json();
+        console.error('Server error:', errorData);
         showNotification(
           `Failed to save note: ${errorData.error || "Unknown error"}`
         );

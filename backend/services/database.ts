@@ -51,10 +51,10 @@ const videoNoteSchema = new mongoose.Schema({
   content: { type: String, required: true },
   contentType: {
     type: String,
-    enum: ["text", "image", "link"],
+    enum: ["text", "image", "link", "image+annotation"],
     default: "text",
   },
-  category: { type: String, required: true },
+  category: { type: String, required: false, default: "Uncategorized" },
   timestamp: { type: String, required: true },
   isPinned: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },

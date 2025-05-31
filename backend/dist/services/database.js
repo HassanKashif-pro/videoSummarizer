@@ -14,16 +14,39 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VideoNote = exports.connectDB = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
-const MONGODB_URI = process.env.MONGODB_URI ||
-    "mongodb+srv://hassan:NtGaqFt2QKd4Gkv@summify.k4z5mic.mongodb.net/?retryWrites=true&w=majority&appName=SUMMIFY";
+// Remove hardcoded credentials and use environment variables
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    console.error("❌ MONGODB_URI is not defined in environment variables");
+    process.exit(1);
+}
+// Configure mongoose
+mongoose_1.default.set('strictQuery', true);
 const connectDB = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield mongoose_1.default.connect(MONGODB_URI);
+        const options = {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        };
+        yield mongoose_1.default.connect(MONGODB_URI, options);
         console.log("✅ MongoDB connected successfully");
+        // Handle connection events
+        mongoose_1.default.connection.on('error', (err) => {
+            console.error('❌ MongoDB connection error:', err);
+        });
+        mongoose_1.default.connection.on('disconnected', () => {
+            console.warn('⚠️ MongoDB disconnected. Attempting to reconnect...');
+        });
+        mongoose_1.default.connection.on('reconnected', () => {
+            console.log('✅ MongoDB reconnected');
+        });
     }
     catch (error) {
         console.error("❌ MongoDB connection error:", error);
-        process.exit(1);
+        // Don't exit the process, let the application handle the error
+        throw error;
     }
 });
 exports.connectDB = connectDB;
@@ -35,10 +58,10 @@ const videoNoteSchema = new mongoose_1.default.Schema({
     content: { type: String, required: true },
     contentType: {
         type: String,
-        enum: ["text", "image", "link"],
+        enum: ["text", "image", "link", "image+annotation"],
         default: "text",
     },
-    category: { type: String, required: true },
+    category: { type: String, required: false, default: "Uncategorized" },
     timestamp: { type: String, required: true },
     isPinned: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now },

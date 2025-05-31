@@ -223,7 +223,8 @@ if (process.env.COHERE_API_KEY && process.env.COHERE_API_KEY.length < 20) {
 }
 
 app.use(cors({ origin: "*" })); // ⚠️ Change this in production
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // Also handle URL-encoded data
 
 console.log("🚀 Server is starting...");
 

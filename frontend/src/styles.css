@@ -732,6 +732,42 @@ button:focus-visible {
   line-height: 1.5;
 }
 
+/* Image styling for notes */
+.content-area img {
+  max-width: 100%;
+  height: auto;
+  max-height: 200px;
+  border-radius: 6px;
+  border: 1px solid var(--yt-border);
+  box-shadow: 0 2px 4px var(--yt-shadow);
+  transition: all 0.2s ease;
+  object-fit: contain;
+  background-color: var(--yt-bg-primary);
+}
+
+.content-area img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px var(--yt-shadow-hover);
+  border-color: var(--yt-border-light);
+}
+
+/* Image annotation styling */
+.content-area div:has(img) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.content-area div:has(img) > div:last-child {
+  font-size: 0.9em;
+  color: var(--yt-text-secondary);
+  font-style: italic;
+  padding: 6px 10px;
+  background-color: var(--yt-bg-hover);
+  border-radius: 4px;
+  border-left: 3px solid var(--yt-red);
+}
+
 .timestamp-container {
   display: flex;
   align-items: center;

@@ -13,14 +13,20 @@
     "@types/chrome": "^0.0.260"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
+    "cpx": "^1.5.0",
     "rimraf": "^5.0.5",
-    "cpx": "^1.5.0"
+    "typescript": "^5.8.3"
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "dist/*", "*.css"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "icons/*",
+        "dist/*",
+        "*.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

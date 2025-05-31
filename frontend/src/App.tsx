@@ -22,6 +22,7 @@ interface Note {
   content: string;
   timestamp: string;
   isPinned: boolean;
+  contentType: string;
 }
 
 interface Category {
@@ -349,45 +350,107 @@ function App() {
           {categories
             .find((cat) => cat.name === selectedCategory)
             ?.notes.filter((note) => note.videoUrl === videoUrl)
-            .map((note, index) => (
-              <div key={note._id || index} className="content-item">
-                <div className="content-area">
-                  {note.content.startsWith('data:image/') ? (
-                    <img 
-                      src={note.content} 
-                      alt="Screenshot" 
-                      style={{ maxWidth: '100%', height: 'auto', borderRadius: '4px' }}
-                    />
-                  ) : (
-                    <div dangerouslySetInnerHTML={{ __html: note.content }} />
-                  )}
-                </div>
-                <div className="note-actions">
-                  {note.timestamp ? (
-                    <div className="timestamp-container">
-                      <button
-                        className="clickable-timestamp"
-                        onClick={() => seekToTimestamp(note.timestamp)}
-                      >
-                        <span className="timestamp-play-icon">▶</span>
-                        <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
-                      </button>
+            .map((note, index) => {
+              if (note.contentType === "image+annotation") {
+                const { image, annotation } = JSON.parse(note.content);
+                return (
+                  <div key={note._id || index} className="content-item">
+                    <div className="content-area">
+                      <img src={image} alt="Screenshot" />
+                      <div>{annotation}</div>
                     </div>
-                  ) : (
-                    <span className="no-timestamp">No Timestamp</span>
-                  )}
-                  {note._id && (
-                    <button
-                      className="delete-note-btn"
-                      onClick={() => handleDeleteNote(note._id!)}
-                      title="Delete note"
-                    >
-                      <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+                    <div className="note-actions">
+                      {note.timestamp ? (
+                        <div className="timestamp-container">
+                          <button
+                            className="clickable-timestamp"
+                            onClick={() => seekToTimestamp(note.timestamp)}
+                          >
+                            <span className="timestamp-play-icon">▶</span>
+                            <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="no-timestamp">No Timestamp</span>
+                      )}
+                      {note._id && (
+                        <button
+                          className="delete-note-btn"
+                          onClick={() => handleDeleteNote(note._id!)}
+                          title="Delete note"
+                        >
+                          <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              } else if (note.contentType === "image" || note.content.startsWith('data:image/')) {
+                return (
+                  <div key={note._id || index} className="content-item">
+                    <div className="content-area">
+                      <img src={note.content} alt="Screenshot" />
+                    </div>
+                    <div className="note-actions">
+                      {note.timestamp ? (
+                        <div className="timestamp-container">
+                          <button
+                            className="clickable-timestamp"
+                            onClick={() => seekToTimestamp(note.timestamp)}
+                          >
+                            <span className="timestamp-play-icon">▶</span>
+                            <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="no-timestamp">No Timestamp</span>
+                      )}
+                      {note._id && (
+                        <button
+                          className="delete-note-btn"
+                          onClick={() => handleDeleteNote(note._id!)}
+                          title="Delete note"
+                        >
+                          <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={note._id || index} className="content-item">
+                    <div className="content-area">
+                      <div dangerouslySetInnerHTML={{ __html: note.content }} />
+                    </div>
+                    <div className="note-actions">
+                      {note.timestamp ? (
+                        <div className="timestamp-container">
+                          <button
+                            className="clickable-timestamp"
+                            onClick={() => seekToTimestamp(note.timestamp)}
+                          >
+                            <span className="timestamp-play-icon">▶</span>
+                            <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="no-timestamp">No Timestamp</span>
+                      )}
+                      {note._id && (
+                        <button
+                          className="delete-note-btn"
+                          onClick={() => handleDeleteNote(note._id!)}
+                          title="Delete note"
+                        >
+                          <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+            })}
         </div>
       </div>
     </div>
