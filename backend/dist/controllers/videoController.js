@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteVideoNote = exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
+exports.deleteVideoNote = exports.getVideoNote = exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
 const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const youtube_transcript_api_1 = require("youtube-transcript-api");
@@ -107,67 +107,101 @@ const getVideoSummary = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.getVideoSummary = getVideoSummary;
-// Fetch video information from YouTube API
+// Fetch video information from YouTube API with caching
+const videoInfoCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const fetchVideoInfo = (videoId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const response = yield axios_1.default.get(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`);
+        // Check cache first
+        const cacheKey = `video_${videoId}`;
+        const cached = videoInfoCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            console.log(`📋 Using cached video info for ${videoId}`);
+            return cached.data;
+        }
+        console.log(`🔄 Fetching video info for ${videoId} from YouTube API`);
+        const response = yield axios_1.default.get(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`, { timeout: 10000 } // 10 second timeout
+        );
         if (response.data.items && response.data.items.length > 0) {
-            return {
+            const videoInfo = {
                 title: response.data.items[0].snippet.title,
                 description: response.data.items[0].snippet.description,
                 thumbnail: response.data.items[0].snippet.thumbnails.default.url,
             };
+            // Cache the result
+            videoInfoCache.set(cacheKey, {
+                data: videoInfo,
+                timestamp: Date.now()
+            });
+            console.log(`✅ Video info cached for ${videoId}`);
+            return videoInfo;
         }
         throw new Error("Video not found");
     }
     catch (error) {
         console.error("Error fetching video info:", error);
-        throw error;
+        // Return fallback data instead of throwing
+        return {
+            title: "Unknown Title",
+            description: "",
+            thumbnail: ""
+        };
     }
 });
-// Save video note to database
+// Save video note to database with optimizations
 const saveVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { videoUrl, content, category, isPinned, timestamp, contentType } = req.body;
-        console.log('🔍 Saving note with:', {
-            contentType,
-            contentPreview: contentType === 'image'
-                ? `[IMAGE DATA - ${content.length} chars]`
-                : content.substring(0, 100),
-            timestamp,
-            category: category || "Uncategorized"
-        });
+        const startTime = Date.now();
+        const { videoUrl, content, category, isPinned, timestamp, contentType, videoId: providedVideoId, videoTitle: providedTitle } = req.body;
         if (!videoUrl) {
             return res.status(400).json({ error: "Missing video URL" });
         }
-        const videoId = extractVideoId(videoUrl);
+        const videoId = providedVideoId || extractVideoId(videoUrl);
         if (!videoId) {
             return res.status(400).json({ error: "Invalid YouTube URL" });
         }
-        // Fetch video information
-        const videoInfo = yield fetchVideoInfo(videoId);
-        // Create new note
-        const note = new database_1.VideoNote({
+        console.log(`🔄 Saving note for video ${videoId}, content type: ${contentType || 'text'}`);
+        // Use provided title or fetch from API as fallback
+        let videoInfo;
+        if (providedTitle) {
+            videoInfo = { title: providedTitle };
+            console.log(`📋 Using provided video title: ${providedTitle}`);
+        }
+        else {
+            videoInfo = yield fetchVideoInfo(videoId);
+        }
+        // Validate content size for images
+        if (contentType === 'image' && content && content.length > 5 * 1024 * 1024) { // 5MB limit
+            return res.status(400).json({ error: "Image too large. Maximum size is 5MB." });
+        }
+        // Create new note with minimal required fields
+        const noteData = {
             videoId,
             videoTitle: videoInfo.title,
             videoUrl,
             contentType: contentType || "text",
             content,
             category: category || "Uncategorized",
-            isPinned,
+            isPinned: isPinned || false,
             timestamp: timestamp || "0:00",
-        });
-        // Save to database
-        const savedNote = yield note.save();
-        console.log('✅ Note saved successfully:', {
-            id: savedNote._id,
+            createdAt: new Date(),
+        };
+        console.log(`📝 Creating note with data size: ${JSON.stringify(noteData).length} characters`);
+        // Save to database with lean option for better performance
+        const savedNote = yield database_1.VideoNote.create(noteData);
+        const saveTime = Date.now() - startTime;
+        console.log(`✅ Note saved in ${saveTime}ms: ${savedNote.contentType} content, ID: ${savedNote._id}`);
+        // Return minimal response to reduce transfer time
+        const response = {
+            _id: savedNote._id,
+            videoId: savedNote.videoId,
             contentType: savedNote.contentType,
             category: savedNote.category,
-            contentPreview: savedNote.contentType === 'image'
-                ? `[IMAGE DATA - ${savedNote.content.length} chars]`
-                : savedNote.content.substring(0, 100)
-        });
-        res.status(201).json(savedNote);
+            timestamp: savedNote.timestamp,
+            createdAt: savedNote.createdAt,
+            success: true
+        };
+        res.status(201).json(response);
     }
     catch (error) {
         console.error("❌ Error saving video note:", error);
@@ -175,50 +209,144 @@ const saveVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.saveVideoNote = saveVideoNote;
-// Get all video notes
+// Get all video notes with optimizations and pagination
 const getVideoNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const notes = yield database_1.VideoNote.find().sort({ timestamp: -1 });
-        console.log('📥 Retrieved notes:', notes.map(note => ({
-            id: note._id,
-            contentType: note.contentType,
-            contentPreview: note.contentType === 'image'
-                ? `[IMAGE DATA - ${note.content.length} chars]`
-                : note.content.substring(0, 100)
-        })));
-        res.json(notes);
+        const startTime = Date.now();
+        // Parse query parameters for optimization
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Max 100 items
+        const videoId = req.query.videoId;
+        const category = req.query.category;
+        const contentType = req.query.contentType;
+        const includeContent = req.query.includeContent !== 'false'; // Default true
+        console.log(`🔄 Fetching notes - Page: ${page}, Limit: ${limit}, VideoID: ${videoId || 'all'}, Category: ${category || 'all'}`);
+        // Build query filter
+        const filter = {};
+        if (videoId)
+            filter.videoId = videoId;
+        if (category && category !== 'all')
+            filter.category = category;
+        if (contentType)
+            filter.contentType = contentType;
+        // Build projection (exclude large content for list views)
+        const projection = includeContent ? {} : {
+            content: 0 // Exclude content field for faster loading
+        };
+        // Calculate skip for pagination
+        const skip = (page - 1) * limit;
+        // Optimized query with lean() for better performance
+        const notesQuery = database_1.VideoNote
+            .find(filter, projection)
+            .sort({ isPinned: -1, createdAt: -1 }) // Pinned first, then newest
+            .skip(skip)
+            .limit(limit)
+            .lean(); // Returns plain JavaScript objects instead of Mongoose documents
+        // Execute query with timeout
+        const notes = yield Promise.race([
+            notesQuery.exec(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 15000))
+        ]);
+        // Get total count for pagination (only if needed)
+        let totalCount = 0;
+        if (page === 1) {
+            try {
+                totalCount = yield database_1.VideoNote.countDocuments(filter).maxTimeMS(5000);
+            }
+            catch (countError) {
+                console.warn("⚠️ Count query failed, skipping pagination info");
+                totalCount = notes.length;
+            }
+        }
+        const queryTime = Date.now() - startTime;
+        console.log(`✅ Fetched ${notes.length} notes in ${queryTime}ms`);
+        // Optimize response payload
+        const optimizedNotes = notes.map(note => {
+            var _a;
+            return ({
+                _id: note._id,
+                videoId: note.videoId,
+                videoTitle: ((_a = note.videoTitle) === null || _a === void 0 ? void 0 : _a.substring(0, 100)) || '', // Truncate long titles
+                videoUrl: note.videoUrl,
+                content: includeContent ? note.content : undefined,
+                contentType: note.contentType,
+                category: note.category,
+                timestamp: note.timestamp,
+                isPinned: note.isPinned,
+                createdAt: note.createdAt,
+            });
+        });
+        const response = {
+            notes: optimizedNotes,
+            pagination: {
+                page,
+                limit,
+                total: totalCount,
+                hasMore: notes.length === limit
+            },
+            meta: {
+                queryTime: `${queryTime}ms`,
+                count: notes.length
+            }
+        };
+        res.json(response);
     }
     catch (error) {
         console.error("❌ Error fetching video notes:", error);
-        res.status(500).json({ error: "Failed to fetch video notes" });
+        if (error.message === 'Query timeout') {
+            res.status(408).json({ error: "Request timeout. Please try again." });
+        }
+        else {
+            res.status(500).json({ error: "Failed to fetch video notes" });
+        }
     }
 });
 exports.getVideoNotes = getVideoNotes;
-// Delete a video note
-const deleteVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+// Get a single note with full content
+const getVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { noteId } = req.params;
-        console.log("Delete request received for note ID:", noteId);
         if (!noteId) {
             return res.status(400).json({ error: "Missing note ID" });
         }
-        const deletedNote = yield database_1.VideoNote.findByIdAndDelete(noteId);
-        if (!deletedNote) {
-            console.log("Note not found with ID:", noteId);
+        const note = yield database_1.VideoNote.findById(noteId).lean().maxTimeMS(5000);
+        if (!note) {
             return res.status(404).json({ error: "Note not found" });
         }
-        console.log("Successfully deleted note:", deletedNote);
-        // Also return all remaining notes to help with debugging
-        const remainingNotes = yield database_1.VideoNote.find();
-        console.log("Remaining notes count:", remainingNotes.length);
+        res.json(note);
+    }
+    catch (error) {
+        console.error("❌ Error fetching video note:", error);
+        res.status(500).json({ error: "Failed to fetch video note" });
+    }
+});
+exports.getVideoNote = getVideoNote;
+// Delete a video note with optimizations
+const deleteVideoNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const startTime = Date.now();
+        const { noteId } = req.params;
+        console.log("🗑️ Delete request received for note ID:", noteId);
+        if (!noteId) {
+            return res.status(400).json({ error: "Missing note ID" });
+        }
+        // Use findByIdAndDelete with lean for better performance
+        const deletedNote = yield database_1.VideoNote.findByIdAndDelete(noteId).lean().maxTimeMS(5000);
+        if (!deletedNote) {
+            console.log("⚠️ Note not found with ID:", noteId);
+            return res.status(404).json({ error: "Note not found" });
+        }
+        const deleteTime = Date.now() - startTime;
+        console.log(`✅ Successfully deleted note in ${deleteTime}ms:`, deletedNote._id);
+        // Return minimal response
         res.status(200).json({
             message: "Note deleted successfully",
-            deletedNote,
-            remainingNotesCount: remainingNotes.length
+            deletedId: deletedNote._id,
+            success: true
         });
     }
     catch (error) {
-        console.error("Error deleting video note:", error);
+        console.error("❌ Error deleting video note:", error);
         res.status(500).json({ error: "Failed to delete video note" });
     }
 });

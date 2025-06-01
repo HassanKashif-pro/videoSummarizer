@@ -13,6 +13,7 @@ const { connectDB } = require("./services/database");
 const {
   saveVideoNote,
   getVideoNotes,
+  getVideoNote,
   deleteVideoNote,
 } = require("./controllers/videoController");
 
@@ -1519,6 +1520,7 @@ app.post("/api/rotate-proxy", (req: any, res: any) => {
 // Routes for video notes
 app.post("/api/videos/save", saveVideoNote);
 app.get("/api/videos/notes", getVideoNotes);
+app.get("/api/videos/notes/:noteId", getVideoNote);
 app.delete("/api/videos/notes/:noteId", deleteVideoNote);
 
 // Add a new endpoint to test YouTube API with a specific video

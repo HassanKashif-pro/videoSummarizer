@@ -44,7 +44,7 @@ function createFloatingUI() {
     headerBar.className = "header_bar";
     // Left side - Logo
     const logoLink = document.createElement("a");
-    logoLink.href = "https://localhost:5000";
+    logoLink.href = "https://localhost:3001";
     logoLink.target = "_blank";
     logoLink.rel = "noopener noreferrer";
     const logoButton = document.createElement("div");
@@ -142,7 +142,7 @@ function createFloatingUI() {
                 throw new Error(transcriptData.error);
             }
             // Get summary
-            const summaryResponse = await fetch("http://localhost:5000/summarize", {
+            const summaryResponse = await fetch("http://localhost:3001/summarize", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -557,7 +557,7 @@ function createFloatingUI() {
     // async function getVideoCategory(videoId: string): Promise<string> {
     //   try {
     //     const response = await fetch(
-    //       `http://localhost:5000/api/videos/category/${videoId}`
+    //       `http://localhost:3001/api/videos/category/${videoId}`
     //     );
     //     const data = await response.json();
     //     if (data.error) {
@@ -631,7 +631,7 @@ function createFloatingUI() {
                 ...noteData,
                 content: contentType === "image" ? `[IMAGE DATA - ${content.length} chars]` : noteData.content.substring(0, 100) + '...'
             });
-            const response = await fetch("http://localhost:5000/api/videos/save", {
+            const response = await fetch("http://localhost:3001/api/videos/save", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

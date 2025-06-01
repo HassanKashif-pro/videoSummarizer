@@ -51,20 +51,34 @@ function App() {
     setShouldRefreshNotes((prev) => prev + 1);
   };
 
-  // Load saved notes from backend
+  // Load saved notes from backend with optimizations
   useEffect(() => {
     const fetchNotes = async () => {
-      console.log("Fetching notes from backend...");
+      console.log("🔄 Fetching notes from backend...");
+      const startTime = Date.now();
+      
       try {
+        // First, fetch notes without content for faster loading
         const response = await axios.get(
-          "http://localhost:3001/api/videos/notes"
+          "http://localhost:3001/api/videos/notes",
+          {
+            params: {
+              limit: 100, // Limit to 100 notes max
+              includeContent: false, // Exclude content for faster loading
+              page: 1
+            },
+            timeout: 15000 // 15 second timeout
+          }
         );
-        console.log("Received notes:", response.data);
-        if (response.data) {
+        
+        const fetchTime = Date.now() - startTime;
+        console.log(`✅ Received ${response.data?.notes?.length || 0} notes in ${fetchTime}ms`);
+        
+        if (response.data?.notes) {
           // Group notes by category
           setCategories((prevCategories) => {
             return prevCategories.map((category) => {
-              const categoryNotes = response.data.filter(
+              const categoryNotes = response.data.notes.filter(
                 (note: Note) => note.category === category.name
               );
               return {
@@ -73,10 +87,19 @@ function App() {
               };
             });
           });
-          console.log("Categories updated");
+          console.log("✅ Categories updated successfully");
         }
-      } catch (error) {
-        console.error("Error fetching notes:", error);
+      } catch (error: any) {
+        console.error("❌ Error fetching notes:", error);
+        
+        // More specific error handling
+        if (error.code === 'ECONNABORTED') {
+          console.error("❌ Request timed out - backend may be slow");
+        } else if (error.response?.status === 408) {
+          console.error("❌ Server timeout - database query took too long");
+        } else if (error.response?.status >= 500) {
+          console.error("❌ Server error - check backend logs");
+        }
       }
     };
 
@@ -249,42 +272,66 @@ function App() {
     return timestamp;
   }
 
-  // Function to add a new note with duplicate checking
+  // Function to add a new note with optimizations
   const addNewNote = async (newNote: Note) => {
     try {
+      const startTime = Date.now();
+      console.log("🔄 Adding new note...");
+
       // Check if the video already exists in any category
       const videoExists = categories.some((category) =>
         category.notes.some((note) => note.videoUrl === newNote.videoUrl)
       );
 
+      // Prepare optimized payload
+      const payload = {
+        ...newNote,
+        videoId: getVideoId(newNote.videoUrl), // Extract and send video ID
+        videoTitle: newNote.videoTitle, // Send title to avoid API call
+      };
+
       if (!videoExists) {
         // If video doesn't exist, add the new note
         const response = await axios.post(
           "http://localhost:3001/api/videos/notes",
-          newNote
+          payload,
+          { timeout: 30000 } // 30 second timeout for uploads
         );
-        if (response.data) {
+        
+        const saveTime = Date.now() - startTime;
+        console.log(`✅ Note saved in ${saveTime}ms`);
+        
+        if (response.data?.success) {
           refreshNotes();
         }
       } else {
         // If video exists, just add the note to the existing video
+        const existingNote = categories
+          .flatMap((cat) => cat.notes)
+          .find((note) => note.videoUrl === newNote.videoUrl);
+          
         const response = await axios.post(
           "http://localhost:3001/api/videos/notes",
           {
-            ...newNote,
-            videoTitle:
-              categories
-                .flatMap((cat) => cat.notes)
-                .find((note) => note.videoUrl === newNote.videoUrl)
-                ?.videoTitle || newNote.videoTitle,
-          }
+            ...payload,
+            videoTitle: existingNote?.videoTitle || newNote.videoTitle,
+          },
+          { timeout: 30000 } // 30 second timeout for uploads
         );
-        if (response.data) {
+        
+        const saveTime = Date.now() - startTime;
+        console.log(`✅ Note saved in ${saveTime}ms`);
+        
+        if (response.data?.success) {
           refreshNotes();
         }
       }
-    } catch (error) {
-      console.error("Error adding note:", error);
+    } catch (error: any) {
+      console.error("❌ Error adding note:", error);
+      
+      if (error.code === 'ECONNABORTED') {
+        console.error("❌ Upload timed out - file may be too large");
+      }
     }
   };
 
@@ -351,105 +398,90 @@ function App() {
             .find((cat) => cat.name === selectedCategory)
             ?.notes.filter((note) => note.videoUrl === videoUrl)
             .map((note, index) => {
-              if (note.contentType === "image+annotation") {
-                const { image, annotation } = JSON.parse(note.content);
-                return (
-                  <div key={note._id || index} className="content-item">
+              // Create a lazy loading component for note content
+              const NoteContent = () => {
+                const [fullNote, setFullNote] = useState<Note | null>(null);
+                const [loading, setLoading] = useState(false);
+
+                useEffect(() => {
+                  // If note doesn't have content, fetch it
+                  if (!note.content && note._id) {
+                    setLoading(true);
+                    axios.get(`http://localhost:3001/api/videos/notes/${note._id}`, {
+                      timeout: 10000
+                    })
+                    .then(response => {
+                      setFullNote(response.data);
+                    })
+                    .catch(error => {
+                      console.error("Error fetching note content:", error);
+                    })
+                    .finally(() => {
+                      setLoading(false);
+                    });
+                  } else {
+                    setFullNote(note);
+                  }
+                }, []);
+
+                if (loading) {
+                  return <div className="loading">Loading content...</div>;
+                }
+
+                const noteToRender = fullNote || note;
+
+                if (noteToRender.contentType === "image+annotation") {
+                  const { image, annotation } = JSON.parse(noteToRender.content || '{}');
+                  return (
                     <div className="content-area">
-                      <img src={image} alt="Screenshot" />
+                      {image && <img src={image} alt="Screenshot" loading="lazy" />}
                       <div>{annotation}</div>
                     </div>
-                    <div className="note-actions">
-                      {note.timestamp ? (
-                        <div className="timestamp-container">
-                          <button
-                            className="clickable-timestamp"
-                            onClick={() => seekToTimestamp(note.timestamp)}
-                          >
-                            <span className="timestamp-play-icon">▶</span>
-                            <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="no-timestamp">No Timestamp</span>
-                      )}
-                      {note._id && (
-                        <button
-                          className="delete-note-btn"
-                          onClick={() => handleDeleteNote(note._id!)}
-                          title="Delete note"
-                        >
-                          <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              } else if (note.contentType === "image" || note.content.startsWith('data:image/')) {
-                return (
-                  <div key={note._id || index} className="content-item">
+                  );
+                } else if (noteToRender.contentType === "image" || noteToRender.content?.startsWith('data:image/')) {
+                  return (
                     <div className="content-area">
-                      <img src={note.content} alt="Screenshot" />
+                      {noteToRender.content && <img src={noteToRender.content} alt="Screenshot" loading="lazy" />}
                     </div>
-                    <div className="note-actions">
-                      {note.timestamp ? (
-                        <div className="timestamp-container">
-                          <button
-                            className="clickable-timestamp"
-                            onClick={() => seekToTimestamp(note.timestamp)}
-                          >
-                            <span className="timestamp-play-icon">▶</span>
-                            <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="no-timestamp">No Timestamp</span>
-                      )}
-                      {note._id && (
-                        <button
-                          className="delete-note-btn"
-                          onClick={() => handleDeleteNote(note._id!)}
-                          title="Delete note"
-                        >
-                          <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={note._id || index} className="content-item">
+                  );
+                } else {
+                  return (
                     <div className="content-area">
-                      <div dangerouslySetInnerHTML={{ __html: note.content }} />
+                      <div dangerouslySetInnerHTML={{ __html: noteToRender.content || '' }} />
                     </div>
-                    <div className="note-actions">
-                      {note.timestamp ? (
-                        <div className="timestamp-container">
-                          <button
-                            className="clickable-timestamp"
-                            onClick={() => seekToTimestamp(note.timestamp)}
-                          >
-                            <span className="timestamp-play-icon">▶</span>
-                            <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="no-timestamp">No Timestamp</span>
-                      )}
-                      {note._id && (
+                  );
+                }
+              };
+
+              return (
+                <div key={note._id || index} className="content-item">
+                  <NoteContent />
+                  <div className="note-actions">
+                    {note.timestamp ? (
+                      <div className="timestamp-container">
                         <button
-                          className="delete-note-btn"
-                          onClick={() => handleDeleteNote(note._id!)}
-                          title="Delete note"
+                          className="clickable-timestamp"
+                          onClick={() => seekToTimestamp(note.timestamp)}
                         >
-                          <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
+                          <span className="timestamp-play-icon">▶</span>
+                          <span className="timestamp-text">{formatTimestamp(note.timestamp)}</span>
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <span className="no-timestamp">No Timestamp</span>
+                    )}
+                    {note._id && (
+                      <button
+                        className="delete-note-btn"
+                        onClick={() => handleDeleteNote(note._id!)}
+                        title="Delete note"
+                      >
+                        <i className="fas fa-trash category-icon" style={{paddingLeft: '6px'}}></i>
+                      </button>
+                    )}
                   </div>
-                );
-              }
+                </div>
+              );
             })}
         </div>
       </div>

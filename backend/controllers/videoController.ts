@@ -124,109 +124,276 @@ export const getVideoSummary = async (req: Request, res: Response) => {
   }
 };
 
-// Fetch video information from YouTube API
+// Fetch video information from YouTube API with caching
+const videoInfoCache = new Map<string, any>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 const fetchVideoInfo = async (videoId: string) => {
   try {
+    // Check cache first
+    const cacheKey = `video_${videoId}`;
+    const cached = videoInfoCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log(`📋 Using cached video info for ${videoId}`);
+      return cached.data;
+    }
+
+    console.log(`🔄 Fetching video info for ${videoId} from YouTube API`);
     const response = await axios.get(
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`,
+      { timeout: 10000 } // 10 second timeout
     );
 
     if (response.data.items && response.data.items.length > 0) {
-      return {
+      const videoInfo = {
         title: response.data.items[0].snippet.title,
         description: response.data.items[0].snippet.description,
         thumbnail: response.data.items[0].snippet.thumbnails.default.url,
       };
+      
+      // Cache the result
+      videoInfoCache.set(cacheKey, {
+        data: videoInfo,
+        timestamp: Date.now()
+      });
+
+      console.log(`✅ Video info cached for ${videoId}`);
+      return videoInfo;
     }
     throw new Error("Video not found");
   } catch (error) {
     console.error("Error fetching video info:", error);
-    throw error;
+    // Return fallback data instead of throwing
+    return {
+      title: "Unknown Title",
+      description: "",
+      thumbnail: ""
+    };
   }
 };
 
-// Save video note to database
+// Save video note to database with optimizations
 export const saveVideoNote = async (req: Request, res: Response) => {
   try {
-    const { videoUrl, content, category, isPinned, timestamp, contentType } = req.body;
+    const startTime = Date.now();
+    const { videoUrl, content, category, isPinned, timestamp, contentType, videoId: providedVideoId, videoTitle: providedTitle } = req.body;
 
     if (!videoUrl) {
       return res.status(400).json({ error: "Missing video URL" });
     }
 
-    const videoId = extractVideoId(videoUrl);
+    const videoId = providedVideoId || extractVideoId(videoUrl);
     if (!videoId) {
       return res.status(400).json({ error: "Invalid YouTube URL" });
     }
 
-    // Fetch video information
-    const videoInfo = await fetchVideoInfo(videoId);
+    console.log(`🔄 Saving note for video ${videoId}, content type: ${contentType || 'text'}`);
 
-    // Create new note
-    const note = new VideoNote({
+    // Use provided title or fetch from API as fallback
+    let videoInfo;
+    if (providedTitle) {
+      videoInfo = { title: providedTitle };
+      console.log(`📋 Using provided video title: ${providedTitle}`);
+    } else {
+      videoInfo = await fetchVideoInfo(videoId);
+    }
+
+    // Validate content size for images
+    if (contentType === 'image' && content && content.length > 5 * 1024 * 1024) { // 5MB limit
+      return res.status(400).json({ error: "Image too large. Maximum size is 5MB." });
+    }
+
+    // Create new note with minimal required fields
+    const noteData = {
       videoId,
       videoTitle: videoInfo.title,
       videoUrl,
       contentType: contentType || "text",
       content,
       category: category || "Uncategorized",
-      isPinned,
+      isPinned: isPinned || false,
       timestamp: timestamp || "0:00",
-    });
+      createdAt: new Date(),
+    };
 
-    // Save to database
-    const savedNote = await note.save();
-    console.log(`✅ Note saved: ${savedNote.contentType} content`);
+    console.log(`📝 Creating note with data size: ${JSON.stringify(noteData).length} characters`);
 
-    res.status(201).json(savedNote);
+    // Save to database with lean option for better performance
+    const savedNote = await VideoNote.create(noteData);
+    
+    const saveTime = Date.now() - startTime;
+    console.log(`✅ Note saved in ${saveTime}ms: ${savedNote.contentType} content, ID: ${savedNote._id}`);
+
+    // Return minimal response to reduce transfer time
+    const response = {
+      _id: savedNote._id,
+      videoId: savedNote.videoId,
+      contentType: savedNote.contentType,
+      category: savedNote.category,
+      timestamp: savedNote.timestamp,
+      createdAt: savedNote.createdAt,
+      success: true
+    };
+
+    res.status(201).json(response);
   } catch (error) {
     console.error("❌ Error saving video note:", error);
     res.status(500).json({ error: "Failed to save video note" });
   }
 };
 
-// Get all video notes
+// Get all video notes with optimizations and pagination
 export const getVideoNotes = async (req: Request, res: Response) => {
   try {
-    const notes = await VideoNote.find().sort({ timestamp: -1 });
-    res.json(notes);
-  } catch (error) {
+    const startTime = Date.now();
+    
+    // Parse query parameters for optimization
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100); // Max 100 items
+    const videoId = req.query.videoId as string;
+    const category = req.query.category as string;
+    const contentType = req.query.contentType as string;
+    const includeContent = req.query.includeContent !== 'false'; // Default true
+    
+    console.log(`🔄 Fetching notes - Page: ${page}, Limit: ${limit}, VideoID: ${videoId || 'all'}, Category: ${category || 'all'}`);
+
+    // Build query filter
+    const filter: any = {};
+    if (videoId) filter.videoId = videoId;
+    if (category && category !== 'all') filter.category = category;
+    if (contentType) filter.contentType = contentType;
+
+    // Build projection (exclude large content for list views)
+    const projection = includeContent ? {} : { 
+      content: 0 // Exclude content field for faster loading
+    };
+
+    // Calculate skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Optimized query with lean() for better performance
+    const notesQuery = VideoNote
+      .find(filter, projection)
+      .sort({ isPinned: -1, createdAt: -1 }) // Pinned first, then newest
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Returns plain JavaScript objects instead of Mongoose documents
+
+    // Execute query with timeout
+    const notes = await Promise.race([
+      notesQuery.exec(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 15000)
+      )
+    ]) as any[];
+
+    // Get total count for pagination (only if needed)
+    let totalCount = 0;
+    if (page === 1) {
+      try {
+        totalCount = await VideoNote.countDocuments(filter).maxTimeMS(5000);
+      } catch (countError) {
+        console.warn("⚠️ Count query failed, skipping pagination info");
+        totalCount = notes.length;
+      }
+    }
+
+    const queryTime = Date.now() - startTime;
+    console.log(`✅ Fetched ${notes.length} notes in ${queryTime}ms`);
+
+    // Optimize response payload
+    const optimizedNotes = notes.map(note => ({
+      _id: note._id,
+      videoId: note.videoId,
+      videoTitle: note.videoTitle?.substring(0, 100) || '', // Truncate long titles
+      videoUrl: note.videoUrl,
+      content: includeContent ? note.content : undefined,
+      contentType: note.contentType,
+      category: note.category,
+      timestamp: note.timestamp,
+      isPinned: note.isPinned,
+      createdAt: note.createdAt,
+    }));
+
+    const response = {
+      notes: optimizedNotes,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore: notes.length === limit
+      },
+      meta: {
+        queryTime: `${queryTime}ms`,
+        count: notes.length
+      }
+    };
+
+    res.json(response);
+  } catch (error: any) {
     console.error("❌ Error fetching video notes:", error);
-    res.status(500).json({ error: "Failed to fetch video notes" });
+    
+    if (error.message === 'Query timeout') {
+      res.status(408).json({ error: "Request timeout. Please try again." });
+    } else {
+      res.status(500).json({ error: "Failed to fetch video notes" });
+    }
   }
 };
 
-// Delete a video note
-export const deleteVideoNote = async (req: Request, res: Response) => {
+// Get a single note with full content
+export const getVideoNote = async (req: Request, res: Response) => {
   try {
     const { noteId } = req.params;
-    
-    console.log("Delete request received for note ID:", noteId);
     
     if (!noteId) {
       return res.status(400).json({ error: "Missing note ID" });
     }
 
-    const deletedNote = await VideoNote.findByIdAndDelete(noteId);
+    const note = await VideoNote.findById(noteId).lean().maxTimeMS(5000);
     
-    if (!deletedNote) {
-      console.log("Note not found with ID:", noteId);
+    if (!note) {
       return res.status(404).json({ error: "Note not found" });
     }
 
-    console.log("Successfully deleted note:", deletedNote);
+    res.json(note);
+  } catch (error) {
+    console.error("❌ Error fetching video note:", error);
+    res.status(500).json({ error: "Failed to fetch video note" });
+  }
+};
+
+// Delete a video note with optimizations
+export const deleteVideoNote = async (req: Request, res: Response) => {
+  try {
+    const startTime = Date.now();
+    const { noteId } = req.params;
     
-    // Also return all remaining notes to help with debugging
-    const remainingNotes = await VideoNote.find();
-    console.log("Remaining notes count:", remainingNotes.length);
+    console.log("🗑️ Delete request received for note ID:", noteId);
     
+    if (!noteId) {
+      return res.status(400).json({ error: "Missing note ID" });
+    }
+
+    // Use findByIdAndDelete with lean for better performance
+    const deletedNote = await VideoNote.findByIdAndDelete(noteId).lean().maxTimeMS(5000);
+    
+    if (!deletedNote) {
+      console.log("⚠️ Note not found with ID:", noteId);
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    const deleteTime = Date.now() - startTime;
+    console.log(`✅ Successfully deleted note in ${deleteTime}ms:`, deletedNote._id);
+    
+    // Return minimal response
     res.status(200).json({ 
       message: "Note deleted successfully", 
-      deletedNote,
-      remainingNotesCount: remainingNotes.length
+      deletedId: deletedNote._id,
+      success: true
     });
   } catch (error) {
-    console.error("Error deleting video note:", error);
+    console.error("❌ Error deleting video note:", error);
     res.status(500).json({ error: "Failed to delete video note" });
   }
 };

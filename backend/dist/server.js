@@ -20,12 +20,12 @@ const path = require("path");
 const https = require("https");
 const HttpsProxyAgent = require("https-proxy-agent");
 const { connectDB } = require("./services/database");
-const { saveVideoNote, getVideoNotes, deleteVideoNote, } = require("./controllers/videoController");
+const { saveVideoNote, getVideoNotes, getVideoNote, deleteVideoNote, } = require("./controllers/videoController");
 // Initialize APIs and constants
 const youtube = google.youtube("v3");
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 // Add these constants after the imports
 const LOG_DIR = path.join(__dirname, "logs");
 const API_STATS_FILE = path.join(LOG_DIR, "api_stats.json");
@@ -1187,6 +1187,7 @@ app.post("/api/rotate-proxy", (req, res) => {
 // Routes for video notes
 app.post("/api/videos/save", saveVideoNote);
 app.get("/api/videos/notes", getVideoNotes);
+app.get("/api/videos/notes/:noteId", getVideoNote);
 app.delete("/api/videos/notes/:noteId", deleteVideoNote);
 // Add a new endpoint to test YouTube API with a specific video
 app.get("/test/youtube/:videoId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
