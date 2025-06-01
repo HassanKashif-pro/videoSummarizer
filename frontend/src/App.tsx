@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar.tsx";
+import SignIn from "./components/SignIn.tsx";
+import UserDropdown from "./components/UserDropdown.tsx";
 import axios from "axios";
 import "./styles.css"; // Import the CSS file for App component
 
@@ -31,6 +33,10 @@ interface Category {
 }
 
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState({ name: 'John Doe', email: 'john.doe@example.com' });
+
   const [categories, setCategories] = useState<Category[]>([
     { name: "Science & Technology", notes: [] },
     { name: "Education", notes: [] },
@@ -50,6 +56,24 @@ function App() {
   const refreshNotes = () => {
     setShouldRefreshNotes((prev) => prev + 1);
   };
+
+  // Sign in handler
+  const handleSignIn = async (email: string, password: string) => {
+    // Simple demo authentication - any email/password works
+    setUser({ name: 'John Doe', email });
+    setIsAuthenticated(true);
+  };
+
+  // Sign out handler
+  const handleSignOut = () => {
+    setIsAuthenticated(false);
+    setUser({ name: '', email: '' });
+  };
+
+  // Show sign-in page if not authenticated
+  if (!isAuthenticated) {
+    return <SignIn onSignIn={handleSignIn} />;
+  }
 
   // Load saved notes from backend with optimizations
   useEffect(() => {
@@ -375,7 +399,9 @@ function App() {
 
       {/* Notes Panel */}
       <div className="notes-panel">
-        <div className="notes-panel-header">John Doe</div>
+        <div className="notes-panel-header">
+          <UserDropdown userName={user.name} onSignOut={handleSignOut} />
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <h2>Notes</h2>
           <button
