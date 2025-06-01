@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
 
 interface SignInProps {
@@ -9,6 +10,7 @@ function SignIn({ onSignIn }: SignInProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +23,11 @@ function SignIn({ onSignIn }: SignInProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGuestAccess = () => {
+    // Navigate directly to main app for guest access
+    navigate('/');
   };
 
   return (
@@ -67,6 +74,12 @@ function SignIn({ onSignIn }: SignInProps) {
         
         <div className="signin-footer">
           <p>Demo credentials: any email and password will work</p>
+          <button 
+            onClick={handleGuestAccess}
+            className="guest-btn"
+          >
+            Continue as Guest
+          </button>
         </div>
       </div>
     </div>

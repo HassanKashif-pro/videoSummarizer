@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './UserDropdown.css';
 
 interface UserDropdownProps {
@@ -9,6 +10,8 @@ interface UserDropdownProps {
 function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const isGuest = userName === 'Guest User';
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -29,6 +32,21 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
     onSignOut();
   };
 
+  const handleSignIn = () => {
+    setIsOpen(false);
+    navigate('/signin');
+  };
+
+  const getInitials = (name: string) => {
+    if (name === 'Guest User') return 'G';
+    return name.split(' ').map(name => name[0]).join('').toUpperCase();
+  };
+
+  const getUserEmail = () => {
+    if (isGuest) return 'Not signed in';
+    return 'john.doe@example.com';
+  };
+
   return (
     <div className="user-dropdown" ref={dropdownRef}>
       <button 
@@ -36,7 +54,7 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="user-avatar">
-          {userName.split(' ').map(name => name[0]).join('').toUpperCase()}
+          {getInitials(userName)}
         </div>
         <span className="user-name">{userName}</span>
         <span className={`dropdown-arrow ${isOpen ? 'open' : ''}`}>▼</span>
@@ -46,18 +64,25 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
         <div className="dropdown-menu">
           <div className="dropdown-item user-info">
             <div className="user-avatar-large">
-              {userName.split(' ').map(name => name[0]).join('').toUpperCase()}
+              {getInitials(userName)}
             </div>
             <div className="user-details">
               <div className="user-name-large">{userName}</div>
-              <div className="user-email">john.doe@example.com</div>
+              <div className="user-email">{getUserEmail()}</div>
             </div>
           </div>
           <div className="dropdown-divider"></div>
-          <button className="dropdown-item" onClick={handleSignOut}>
-            <span className="dropdown-icon">🚪</span>
-            Sign Out
-          </button>
+          {isGuest ? (
+            <button className="dropdown-item" onClick={handleSignIn}>
+              <span className="dropdown-icon">🔑</span>
+              Sign In
+            </button>
+          ) : (
+            <button className="dropdown-item" onClick={handleSignOut}>
+              <span className="dropdown-icon">🚪</span>
+              Sign Out
+            </button>
+          )}
         </div>
       )}
     </div>
