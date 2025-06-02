@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import MainApp from "./components/MainApp.tsx";
 import SignIn from "./components/SignIn.tsx";
+import UserDashboard from "./components/UserDashboard";
 import "./styles.css";
+import { authService } from './services/authService';
 
 // Authentication Context Component
 function AuthWrapper() {
@@ -85,9 +87,45 @@ function AuthWrapper() {
 }
 
 function App() {
-              return (
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if user is already authenticated on app start
+    const checkAuth = () => {
+      const authenticated = authService.isAuthenticated();
+      setIsAuthenticated(authenticated);
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const handleSignIn = (email: string, password: string) => {
+    console.log('User signed in:', { email, user: authService.getCurrentUser() });
+    setIsAuthenticated(true);
+  };
+
+  const handleSignOut = () => {
+    console.log('User signed out');
+    setIsAuthenticated(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
     <Router>
-      <AuthWrapper />
+      {isAuthenticated ? (
+        <UserDashboard onSignOut={handleSignOut} />
+      ) : (
+        <AuthWrapper />
+      )}
     </Router>
   );
 }

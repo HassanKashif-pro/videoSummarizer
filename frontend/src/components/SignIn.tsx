@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authService, SignUpData, SignInData } from '../services/authService';
 import './SignIn.css';
 
 interface SignInProps {
@@ -8,21 +9,104 @@ interface SignInProps {
 
 function SignIn({ onSignIn }: SignInProps) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'email' | 'password' | 'name'>('email');
+  const [currentStep, setCurrentStep] = useState<'email' | 'password' | 'name' | 'username'>('email');
   const [formData, setFormData] = useState({
+    username: '',
     name: '',
     email: '',
     password: '',
     confirmPassword: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [validationErrors, setValidationErrors] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
   const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
+    // Clear main error when user starts typing
+    if (error) setError('');
+    
+    // Real-time validation
+    validateField(name, value);
+  };
+
+  const validateField = (fieldName: string, value: string) => {
+    let fieldError = '';
+    
+    switch (fieldName) {
+      case 'username':
+        if (value.length > 0 && value.length < 3) {
+          fieldError = 'Username must be at least 3 characters long';
+        } else if (value.length > 0 && !/^[a-zA-Z0-9_]+$/.test(value)) {
+          fieldError = 'Username can only contain letters, numbers, and underscores';
+        }
+        break;
+      case 'email':
+        if (value.length > 0) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value)) {
+            fieldError = 'Please enter a valid email address';
+          }
+        }
+        break;
+      case 'password':
+        if (isSignUp && value.length > 0 && value.length < 6) {
+          fieldError = 'Password must be at least 6 characters long';
+        }
+        // Also validate confirm password when password changes
+        if (isSignUp && formData.confirmPassword.length > 0) {
+          setTimeout(() => validateField('confirmPassword', formData.confirmPassword), 0);
+        }
+        break;
+      case 'confirmPassword':
+        if (isSignUp && value.length > 0 && value !== formData.password) {
+          fieldError = 'Passwords do not match';
+        }
+        break;
+    }
+    
+    setValidationErrors(prev => ({
+      ...prev,
+      [fieldName]: fieldError
+    }));
+  };
+
+  // Check if username is valid
+  const isUsernameValid = () => {
+    return formData.username.length >= 3 && 
+           /^[a-zA-Z0-9_]+$/.test(formData.username) && 
+           !validationErrors.username;
+  };
+
+  // Check if email is valid
+  const isEmailValid = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(formData.email) && !validationErrors.email;
+  };
+
+  // Check if password is valid
+  const isPasswordValid = () => {
+    if (isSignUp) {
+      return formData.password.length >= 6 && 
+             !validationErrors.password && 
+             formData.confirmPassword.length > 0 && 
+             !validationErrors.confirmPassword &&
+             formData.password === formData.confirmPassword;
+    }
+    return formData.password.length > 0;
   };
 
   // Handle ENTER key press for all inputs
@@ -31,6 +115,8 @@ function SignIn({ onSignIn }: SignInProps) {
       e.preventDefault();
       if (currentStep === 'email') {
         handleEmailSubmit(e as any);
+      } else if (currentStep === 'username') {
+        handleUsernameSubmit(e as any);
       } else if (currentStep === 'name') {
         handleNameSubmit(e as any);
       } else if (currentStep === 'password') {
@@ -39,47 +125,154 @@ function SignIn({ onSignIn }: SignInProps) {
     }
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.email.trim()) {
-      if (isSignUp) {
-        setCurrentStep('name');
-      } else {
-        setCurrentStep('password');
+    setError('');
+    setIsLoading(true);
+    
+    if (!isEmailValid()) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (isSignUp) {
+      // For sign up, check if email already exists
+      if (authService.checkEmailExists(formData.email)) {
+        setError('Email already registered. Please use a different email or sign in.');
+        setIsLoading(false);
+        return;
       }
+      setCurrentStep('username');
+    } else {
+      // For sign in, check if email exists in the system
+      if (!authService.checkEmailExists(formData.email)) {
+        setError('Email not found. Please check your email or sign up.');
+        setIsLoading(false);
+        return;
+      }
+      setCurrentStep('password');
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleUsernameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (isUsernameValid()) {
+      setCurrentStep('name');
     }
   };
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name.trim()) {
-      setCurrentStep('password');
+    setError('');
+    
+    if (!formData.name.trim()) {
+      setError('Please enter your full name');
+      return;
     }
+
+    setCurrentStep('password');
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setIsLoading(true);
     
     try {
-      if (isSignUp && formData.password !== formData.confirmPassword) {
-        alert('Passwords do not match!');
+      if (!formData.password.trim()) {
+        setError('Please enter your password');
         setIsLoading(false);
         return;
       }
-      await onSignIn(formData.email, formData.password);
+
+      if (isSignUp) {
+        // Password validation for sign up
+        if (formData.password.length < 6) {
+          setError('Password must be at least 6 characters long');
+          setIsLoading(false);
+          return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match!');
+          setIsLoading(false);
+          return;
+        }
+
+        // Sign up
+        const signUpData: SignUpData = {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          name: formData.name
+        };
+
+        const result = await authService.signUp(signUpData);
+        
+        if (result.success) {
+          setSuccess(result.message || 'Account created successfully!');
+          setTimeout(() => {
+            onSignIn(formData.email, formData.password);
+          }, 1500);
+        } else {
+          setError(result.message || 'Failed to create account');
+        }
+      } else {
+        // Sign in
+        const signInData: SignInData = {
+          email: formData.email,
+          password: formData.password
+        };
+
+        const result = await authService.signIn(signInData);
+        
+        if (result.success) {
+          setSuccess(result.message || 'Signed in successfully!');
+          setTimeout(() => {
+            onSignIn(formData.email, formData.password);
+          }, 1000);
+        } else {
+          setError(result.message || 'Failed to sign in');
+        }
+      }
     } catch (error) {
       console.error('Authentication error:', error);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = () => {
-    onSignIn('user@gmail.com', 'google-auth');
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      // Simulate Google sign in with demo data
+      const googleUser: SignUpData = {
+        username: 'googleuser_' + Date.now(),
+        email: 'user@gmail.com',
+        password: 'google-auth-token',
+        name: 'Google User'
+      };
+
+      const result = await authService.signUp(googleUser);
+      if (result.success) {
+        setSuccess('Signed in with Google successfully!');
+        setTimeout(() => {
+          onSignIn(googleUser.email, googleUser.password);
+        }, 1000);
+      }
+    } catch (error) {
+      setError('Google sign in failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const goBack = () => {
+    setError('');
     if (currentStep === 'password') {
       if (isSignUp) {
         setCurrentStep('name');
@@ -87,6 +280,8 @@ function SignIn({ onSignIn }: SignInProps) {
         setCurrentStep('email');
       }
     } else if (currentStep === 'name') {
+      setCurrentStep('username');
+    } else if (currentStep === 'username') {
       setCurrentStep('email');
     }
   };
@@ -94,12 +289,17 @@ function SignIn({ onSignIn }: SignInProps) {
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
     setCurrentStep('email');
-    setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+    setFormData({ username: '', name: '', email: '', password: '', confirmPassword: '' });
+    setError('');
+    setSuccess('');
+    setValidationErrors({ username: '', email: '', password: '', confirmPassword: '' });
   };
 
   const getStepTitle = () => {
     if (currentStep === 'email') {
       return isSignUp ? 'Create your account' : 'Sign in to your account';
+    } else if (currentStep === 'username') {
+      return 'Choose a username';
     } else if (currentStep === 'name') {
       return 'What\'s your name?';
     } else {
@@ -110,17 +310,20 @@ function SignIn({ onSignIn }: SignInProps) {
   const getStepSubtitle = () => {
     if (currentStep === 'email') {
       return 'Enter your email to continue';
+    } else if (currentStep === 'username') {
+      return 'This will be your unique identifier';
     } else if (currentStep === 'name') {
       return 'This will be displayed in your profile';
     } else {
-      return `Welcome ${isSignUp ? formData.name || 'back' : 'back'}!`;
+      if (isSignUp) {
+        return 'Create a secure password for your account';
+      }
+      return `Welcome back, ${formData.name || 'User'}!`;
     }
   };
 
   const getSubmitButtonText = () => {
-    if (currentStep === 'email') {
-      return 'Continue';
-    } else if (currentStep === 'name') {
+    if (currentStep === 'email' || currentStep === 'username' || currentStep === 'name') {
       return 'Continue';
     } else {
       if (isLoading) {
@@ -145,57 +348,86 @@ function SignIn({ onSignIn }: SignInProps) {
               </button>
             </div>
           )}
+          
+          {/* Error and Success Messages */}
+          {error && (
+            <div className="message error-message">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="message success-message">
+              {success}
+            </div>
+          )}
         </div>
         
         <div className="form-container">
+          {/* Email Step */}
           <div className={`form-step ${currentStep === 'email' ? 'active' : ''}`}>
             {currentStep === 'email' && (
               <form onSubmit={handleEmailSubmit} className="signin-form">
-                <div className="form-group">
-                  <label htmlFor="email">Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                    required
-                    placeholder="Enter your email"
-                    autoFocus
-                  />
+                <div className="form-content">
+                  <div className="form-group">
+                    <label htmlFor="email">Email</label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                      required
+                      placeholder="Enter your email"
+                      autoFocus
+                      className={validationErrors.email ? 'error' : ''}
+                    />
+                    {validationErrors.email && (
+                      <small className="validation-error">{validationErrors.email}</small>
+                    )}
+                  </div>
                 </div>
                 
-                <button type="submit" className="submit-btn" disabled={!formData.email.trim()}>
-                  {getSubmitButtonText()}
+                <button type="submit" className="signin-btn" disabled={!isEmailValid() || isLoading}>
+                  {isLoading && currentStep === 'email' ? 'Checking...' : getSubmitButtonText()}
                 </button>
               </form>
             )}
           </div>
 
-          <div className={`form-step ${currentStep === 'name' ? 'active' : ''}`}>
-            {currentStep === 'name' && (
-              <form onSubmit={handleNameSubmit} className="signin-form">
-                <div className="form-group">
-                  <label htmlFor="name">Full Name</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                    required
-                    placeholder="Enter your full name"
-                    autoFocus
-                  />
+          {/* Username Step (only for sign up) */}
+          <div className={`form-step ${currentStep === 'username' ? 'active' : ''}`}>
+            {currentStep === 'username' && (
+              <form onSubmit={handleUsernameSubmit} className="signin-form">
+                <div className="form-content">
+                  <div className="form-group">
+                    <label htmlFor="username">Username</label>
+                    <input
+                      type="text"
+                      id="username"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                      required
+                      placeholder="Choose a unique username"
+                      autoFocus
+                      className={validationErrors.username ? 'error' : ''}
+                    />
+                    {validationErrors.username && (
+                      <small className="validation-error">{validationErrors.username}</small>
+                    )}
+                    {!validationErrors.username && (
+                      <small className="input-help">3+ characters, letters, numbers, and underscores only</small>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="button-group">
                   <button type="button" onClick={goBack} className="back-btn">
                     Back
                   </button>
-                  <button type="submit" className="submit-btn" disabled={!formData.name.trim()}>
+                  <button type="submit" className="signin-btn" disabled={!isUsernameValid()}>
                     {getSubmitButtonText()}
                   </button>
                 </div>
@@ -203,39 +435,83 @@ function SignIn({ onSignIn }: SignInProps) {
             )}
           </div>
 
-          <div className={`form-step ${currentStep === 'password' ? 'active' : ''}`}>
-            {currentStep === 'password' && (
-              <form onSubmit={handlePasswordSubmit} className="signin-form">
-                <div className="form-group">
-                  <label htmlFor="password">Password</label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                    required
-                    placeholder="Enter your password"
-                    autoFocus
-                  />
-                </div>
-
-                {isSignUp && (
+          {/* Name Step */}
+          <div className={`form-step ${currentStep === 'name' ? 'active' : ''}`}>
+            {currentStep === 'name' && (
+              <form onSubmit={handleNameSubmit} className="signin-form">
+                <div className="form-content">
                   <div className="form-group">
-                    <label htmlFor="confirmPassword">Confirm Password</label>
+                    <label htmlFor="name">Full Name</label>
                     <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                       required
-                      placeholder="Confirm your password"
+                      placeholder="Enter your full name"
+                      autoFocus
                     />
                   </div>
-                )}
+                </div>
+                
+                <div className="button-group">
+                  <button type="button" onClick={goBack} className="back-btn">
+                    Back
+                  </button>
+                  <button type="submit" className="signin-btn" disabled={!formData.name.trim()}>
+                    {getSubmitButtonText()}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Password Step */}
+          <div className={`form-step ${currentStep === 'password' ? 'active' : ''}`}>
+            {currentStep === 'password' && (
+              <form onSubmit={handlePasswordSubmit} className="signin-form">
+                <div className="form-content">
+                  <div className="form-group">
+                    <label htmlFor="password">Password</label>
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                      required
+                      placeholder={isSignUp ? "Create a password (6+ characters)" : "Enter your password"}
+                      autoFocus
+                      className={validationErrors.password ? 'error' : ''}
+                    />
+                    {validationErrors.password && (
+                      <small className="validation-error">{validationErrors.password}</small>
+                    )}
+                  </div>
+
+                  {isSignUp && (
+                    <div className="form-group">
+                      <label htmlFor="confirmPassword">Confirm Password</label>
+                      <input
+                        type="password"
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        onKeyPress={handleKeyPress}
+                        required
+                        placeholder="Confirm your password"
+                        className={validationErrors.confirmPassword ? 'error' : ''}
+                      />
+                      {validationErrors.confirmPassword && (
+                        <small className="validation-error">{validationErrors.confirmPassword}</small>
+                      )}
+                    </div>
+                  )}
+                </div>
                 
                 <div className="button-group">
                   <button type="button" onClick={goBack} className="back-btn">
@@ -243,8 +519,8 @@ function SignIn({ onSignIn }: SignInProps) {
                   </button>
                   <button 
                     type="submit" 
-                    className="submit-btn"
-                    disabled={isLoading || !formData.password.trim() || (isSignUp && !formData.confirmPassword.trim())}
+                    className="signin-btn"
+                    disabled={isLoading || !isPasswordValid()}
                   >
                     {getSubmitButtonText()}
                   </button>
@@ -255,10 +531,11 @@ function SignIn({ onSignIn }: SignInProps) {
         </div>
         
         <div className="signin-footer">
-
+          
           <button 
             onClick={handleGoogleSignIn}
             className="google-btn"
+            disabled={isLoading}
           >
             <i className="fab fa-google" style={{ color: 'var(--yt-red)' }}></i>
             Continue with Google
