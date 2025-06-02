@@ -6,22 +6,15 @@
 .user-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 10px;
   background: transparent;
-  border: 1px solid #e1e5e9;
-  border-radius: 8px;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
   font-family: inherit;
-  color: #333;
+  color: #000000;
 }
-
-.user-btn:hover {
-  background: #f5f5f5;
-  border-color: #d1d5db;
-}
-
 .user-avatar {
   width: 32px;
   height: 32px;
@@ -36,14 +29,17 @@
 }
 
 .user-name {
-  font-size: 14px;
+  font-size: 18px;
+  letter-spacing: 1.5px;
   font-weight: 500;
+  color: inherit;
 }
 
 .dropdown-arrow {
-  font-size: 10px;
+  font-size: 8px;
   transition: transform 0.2s ease;
-  color: #666;
+  color: #666666;
+  opacity: 1;
 }
 
 .dropdown-arrow.open {
@@ -53,35 +49,38 @@
 .dropdown-menu {
   position: absolute;
   top: 100%;
-  right: 0;
-  background: white;
-  border: 1px solid #e1e5e9;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  min-width: 250px;
+  right: -12%;
+  height: 45px;
+  background: var(--yt-bg-card);
+  border: 1px solid var(--yt-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
   z-index: 1000;
-  margin-top: 4px;
+  margin-top: 6px;
   overflow: hidden;
 }
 
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 26px;
+  padding: 10px 14px;
   width: 100%;
+  height: 100%;
   border: none;
   background: transparent;
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-family: inherit;
-  font-size: 14px;
-  color: #333;
+  font-size: 16px;
+  color: #000000;
   text-align: left;
+  font-weight: 500;
 }
 
 .dropdown-item:hover {
-  background: #f5f5f5;
+  background: var(--yt-bg-hover);
 }
 
 .dropdown-item.user-info {
@@ -130,18 +129,19 @@
 }
 
 .dropdown-icon {
-  font-size: 16px;
+  font-size: 13px;
+  opacity: 1;
 }
 
 /* Animation for dropdown */
 .dropdown-menu {
-  animation: dropdownFadeIn 0.15s ease-out;
+  animation: dropdownFadeIn 0.12s ease-out;
 }
 
 @keyframes dropdownFadeIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;

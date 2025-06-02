@@ -52,7 +52,7 @@ function AuthWrapper() {
   };
 
   if (isLoading) {
-    return (
+  return (
       <div style={{ 
         display: 'flex', 
         justifyContent: 'center', 
@@ -65,7 +65,7 @@ function AuthWrapper() {
     );
   }
 
-  return (
+                  return (
     <Routes>
       <Route 
         path="/signin" 
@@ -85,7 +85,7 @@ function AuthWrapper() {
 }
 
 function App() {
-  return (
+              return (
     <Router>
       <AuthWrapper />
     </Router>

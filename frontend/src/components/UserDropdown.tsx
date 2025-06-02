@@ -37,49 +37,26 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
     navigate('/signin');
   };
 
-  const getInitials = (name: string) => {
-    if (name === 'Guest User') return 'G';
-    return name.split(' ').map(name => name[0]).join('').toUpperCase();
-  };
-
-  const getUserEmail = () => {
-    if (isGuest) return 'Not signed in';
-    return 'john.doe@example.com';
-  };
-
   return (
     <div className="user-dropdown" ref={dropdownRef}>
       <button 
         className="user-btn"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="user-avatar">
-          {getInitials(userName)}
-        </div>
         <span className="user-name">{userName}</span>
         <span className={`dropdown-arrow ${isOpen ? 'open' : ''}`}>▼</span>
       </button>
       
       {isOpen && (
         <div className="dropdown-menu">
-          <div className="dropdown-item user-info">
-            <div className="user-avatar-large">
-              {getInitials(userName)}
-            </div>
-            <div className="user-details">
-              <div className="user-name-large">{userName}</div>
-              <div className="user-email">{getUserEmail()}</div>
-            </div>
-          </div>
-          <div className="dropdown-divider"></div>
           {isGuest ? (
             <button className="dropdown-item" onClick={handleSignIn}>
-              <span className="dropdown-icon">🔑</span>
+              <i className="fa-solid fa-right-to-bracket"></i>
               Sign In
             </button>
           ) : (
             <button className="dropdown-item" onClick={handleSignOut}>
-              <span className="dropdown-icon">🚪</span>
+              <i className="fa-solid fa-right-from-bracket"></i>
               Sign Out
             </button>
           )}
