@@ -10,6 +10,8 @@ interface SignInProps {
 function SignIn({ onSignIn }: SignInProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [currentStep, setCurrentStep] = useState<'email' | 'password' | 'name' | 'username'>('email');
+  const [previousStep, setPreviousStep] = useState<'email' | 'password' | 'name' | 'username' | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     name: '',
@@ -84,6 +86,22 @@ function SignIn({ onSignIn }: SignInProps) {
     }));
   };
 
+  // Smooth step transition with animation
+  const transitionToStep = (newStep: 'email' | 'password' | 'name' | 'username') => {
+    if (newStep === currentStep) return;
+    
+    setIsTransitioning(true);
+    setPreviousStep(currentStep);
+    
+    setTimeout(() => {
+      setCurrentStep(newStep);
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setPreviousStep(null);
+      }, 50);
+    }, 200);
+  };
+
   // Check if username is valid
   const isUsernameValid = () => {
     return formData.username.length >= 3 && 
@@ -142,7 +160,7 @@ function SignIn({ onSignIn }: SignInProps) {
         setIsLoading(false);
         return;
       }
-      setCurrentStep('username');
+      transitionToStep('username');
     } else {
       // For sign in, check if email exists in the system
       if (!authService.checkEmailExists(formData.email)) {
@@ -150,7 +168,7 @@ function SignIn({ onSignIn }: SignInProps) {
         setIsLoading(false);
         return;
       }
-      setCurrentStep('password');
+      transitionToStep('password');
     }
     
     setIsLoading(false);
@@ -160,7 +178,7 @@ function SignIn({ onSignIn }: SignInProps) {
     e.preventDefault();
     
     if (isUsernameValid()) {
-      setCurrentStep('name');
+      transitionToStep('name');
     }
   };
 
@@ -173,7 +191,7 @@ function SignIn({ onSignIn }: SignInProps) {
       return;
     }
 
-    setCurrentStep('password');
+    transitionToStep('password');
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -275,20 +293,22 @@ function SignIn({ onSignIn }: SignInProps) {
     setError('');
     if (currentStep === 'password') {
       if (isSignUp) {
-        setCurrentStep('name');
+        transitionToStep('name');
       } else {
-        setCurrentStep('email');
+        transitionToStep('email');
       }
     } else if (currentStep === 'name') {
-      setCurrentStep('username');
+      transitionToStep('username');
     } else if (currentStep === 'username') {
-      setCurrentStep('email');
+      transitionToStep('email');
     }
   };
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
     setCurrentStep('email');
+    setPreviousStep(null);
+    setIsTransitioning(false);
     setFormData({ username: '', name: '', email: '', password: '', confirmPassword: '' });
     setError('');
     setSuccess('');
@@ -333,9 +353,24 @@ function SignIn({ onSignIn }: SignInProps) {
     }
   };
 
+  // Get CSS classes for dynamic sizing
+  const getCardClasses = () => {
+    const baseClass = 'signin-card';
+    const stepClass = `step-${currentStep}`;
+    const modeClass = isSignUp ? 'signup-mode' : 'signin-mode';
+    return `${baseClass} ${stepClass} ${modeClass}`;
+  };
+
+  const getContainerClasses = () => {
+    const baseClass = 'form-container';
+    const stepClass = `step-${currentStep}`;
+    const modeClass = isSignUp ? 'signup-mode' : 'signin-mode';
+    return `${baseClass} ${stepClass} ${modeClass}`;
+  };
+
   return (
     <div className="signin-container">
-      <div className="signin-card">
+      <div className={getCardClasses()}>
         <div className="signin-header">
           <h1>Video Summarizer</h1>
           <p className="step-title">{getStepTitle()}</p>
@@ -343,7 +378,7 @@ function SignIn({ onSignIn }: SignInProps) {
           {currentStep !== 'email' && (
             <div className="user-email-display">
               <span>{formData.email}</span>
-              <button onClick={() => setCurrentStep('email')} className="change-email-btn">
+              <button onClick={() => transitionToStep('email')} className="change-email-btn">
                 Change
               </button>
             </div>
@@ -362,171 +397,163 @@ function SignIn({ onSignIn }: SignInProps) {
           )}
         </div>
         
-        <div className="form-container">
+        <div className={getContainerClasses()}>
           {/* Email Step */}
           <div className={`form-step ${currentStep === 'email' ? 'active' : ''}`}>
-            {currentStep === 'email' && (
-              <form onSubmit={handleEmailSubmit} className="signin-form">
-                <div className="form-content">
-                  <div className="form-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      onKeyPress={handleKeyPress}
-                      required
-                      placeholder="Enter your email"
-                      autoFocus
-                      className={validationErrors.email ? 'error' : ''}
-                    />
-                    {validationErrors.email && (
-                      <small className="validation-error">{validationErrors.email}</small>
-                    )}
-                  </div>
+            <form onSubmit={handleEmailSubmit} className="signin-form">
+              <div className="form-content">
+                <div className="form-group">
+                  <label htmlFor="email">Email</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    required
+                    placeholder="Enter your email"
+                    autoFocus={currentStep === 'email'}
+                    className={validationErrors.email ? 'error' : ''}
+                  />
+                  {validationErrors.email && (
+                    <small className="validation-error">{validationErrors.email}</small>
+                  )}
                 </div>
-                
-                <button type="submit" className="signin-btn" disabled={!isEmailValid() || isLoading}>
-                  {isLoading && currentStep === 'email' ? 'Checking...' : getSubmitButtonText()}
-                </button>
-              </form>
-            )}
+              </div>
+              
+              <button type="submit" className="signin-btn" disabled={!isEmailValid() || isLoading}>
+                {isLoading && currentStep === 'email' ? 'Checking...' : getSubmitButtonText()}
+              </button>
+            </form>
           </div>
 
           {/* Username Step (only for sign up) */}
           <div className={`form-step ${currentStep === 'username' ? 'active' : ''}`}>
-            {currentStep === 'username' && (
-              <form onSubmit={handleUsernameSubmit} className="signin-form">
-                <div className="form-content">
-                  <div className="form-group">
-                    <label htmlFor="username">Username</label>
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      onKeyPress={handleKeyPress}
-                      required
-                      placeholder="Choose a unique username"
-                      autoFocus
-                      className={validationErrors.username ? 'error' : ''}
-                    />
-                    {validationErrors.username && (
-                      <small className="validation-error">{validationErrors.username}</small>
-                    )}
-                    {!validationErrors.username && (
-                      <small className="input-help">3+ characters, letters, numbers, and underscores only</small>
-                    )}
-                  </div>
+            <form onSubmit={handleUsernameSubmit} className="signin-form">
+              <div className="form-content">
+                <div className="form-group">
+                  <label htmlFor="username">Username</label>
+                  <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    required
+                    placeholder="Choose a unique username"
+                    autoFocus={currentStep === 'username'}
+                    className={validationErrors.username ? 'error' : ''}
+                  />
+                  {validationErrors.username && (
+                    <small className="validation-error">{validationErrors.username}</small>
+                  )}
+                  {!validationErrors.username && (
+                    <small className="input-help">3+ characters, letters, numbers, and underscores only</small>
+                  )}
                 </div>
-                
-                <div className="button-group">
-                  <button type="button" onClick={goBack} className="back-btn">
-                    Back
-                  </button>
-                  <button type="submit" className="signin-btn" disabled={!isUsernameValid()}>
-                    {getSubmitButtonText()}
-                  </button>
-                </div>
-              </form>
-            )}
+              </div>
+              
+              <div className="button-group">
+                <button type="button" onClick={goBack} className="back-btn">
+                  Back
+                </button>
+                <button type="submit" className="signin-btn" disabled={!isUsernameValid()}>
+                  {getSubmitButtonText()}
+                </button>
+              </div>
+            </form>
           </div>
 
           {/* Name Step */}
           <div className={`form-step ${currentStep === 'name' ? 'active' : ''}`}>
-            {currentStep === 'name' && (
-              <form onSubmit={handleNameSubmit} className="signin-form">
-                <div className="form-content">
-                  <div className="form-group">
-                    <label htmlFor="name">Full Name</label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      onKeyPress={handleKeyPress}
-                      required
-                      placeholder="Enter your full name"
-                      autoFocus
-                    />
-                  </div>
+            <form onSubmit={handleNameSubmit} className="signin-form">
+              <div className="form-content">
+                <div className="form-group">
+                  <label htmlFor="name">Full Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    required
+                    placeholder="Enter your full name"
+                    autoFocus={currentStep === 'name'}
+                  />
                 </div>
-                
-                <div className="button-group">
-                  <button type="button" onClick={goBack} className="back-btn">
-                    Back
-                  </button>
-                  <button type="submit" className="signin-btn" disabled={!formData.name.trim()}>
-                    {getSubmitButtonText()}
-                  </button>
-                </div>
-              </form>
-            )}
+              </div>
+              
+              <div className="button-group">
+                <button type="button" onClick={goBack} className="back-btn">
+                  Back
+                </button>
+                <button type="submit" className="signin-btn" disabled={!formData.name.trim()}>
+                  {getSubmitButtonText()}
+                </button>
+              </div>
+            </form>
           </div>
 
           {/* Password Step */}
           <div className={`form-step ${currentStep === 'password' ? 'active' : ''}`}>
-            {currentStep === 'password' && (
-              <form onSubmit={handlePasswordSubmit} className="signin-form">
-                <div className="form-content">
+            <form onSubmit={handlePasswordSubmit} className="signin-form">
+              <div className="form-content">
+                <div className="form-group">
+                  <label htmlFor="password">Password</label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    required
+                    placeholder={isSignUp ? "Create a password (6+ characters)" : "Enter your password"}
+                    autoFocus={currentStep === 'password'}
+                    className={validationErrors.password ? 'error' : ''}
+                  />
+                  {validationErrors.password && (
+                    <small className="validation-error">{validationErrors.password}</small>
+                  )}
+                </div>
+
+                {isSignUp && (
                   <div className="form-group">
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="confirmPassword">Confirm Password</label>
                     <input
                       type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                       required
-                      placeholder={isSignUp ? "Create a password (6+ characters)" : "Enter your password"}
-                      autoFocus
-                      className={validationErrors.password ? 'error' : ''}
+                      placeholder="Confirm your password"
+                      className={validationErrors.confirmPassword ? 'error' : ''}
                     />
-                    {validationErrors.password && (
-                      <small className="validation-error">{validationErrors.password}</small>
+                    {validationErrors.confirmPassword && (
+                      <small className="validation-error">{validationErrors.confirmPassword}</small>
                     )}
                   </div>
-
-                  {isSignUp && (
-                    <div className="form-group">
-                      <label htmlFor="confirmPassword">Confirm Password</label>
-                      <input
-                        type="password"
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        onKeyPress={handleKeyPress}
-                        required
-                        placeholder="Confirm your password"
-                        className={validationErrors.confirmPassword ? 'error' : ''}
-                      />
-                      {validationErrors.confirmPassword && (
-                        <small className="validation-error">{validationErrors.confirmPassword}</small>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="button-group">
-                  <button type="button" onClick={goBack} className="back-btn">
-                    Back
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="signin-btn"
-                    disabled={isLoading || !isPasswordValid()}
-                  >
-                    {getSubmitButtonText()}
-                  </button>
-                </div>
-              </form>
-            )}
+                )}
+              </div>
+              
+              <div className="button-group">
+                <button type="button" onClick={goBack} className="back-btn">
+                  Back
+                </button>
+                <button 
+                  type="submit" 
+                  className="signin-btn"
+                  disabled={isLoading || !isPasswordValid()}
+                >
+                  {getSubmitButtonText()}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
         

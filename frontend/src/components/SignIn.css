@@ -16,10 +16,11 @@
   max-width: 400px;
   margin: 20px;
   border: 1px solid var(--yt-border);
-  min-height: 580px;
+  min-height: 450px;
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: min-height 0.3s ease;
 }
 
 .signin-header {
@@ -83,9 +84,32 @@
   position: relative;
   flex: 1;
   overflow: hidden;
-  min-height: 280px;
+  min-height: 200px;
+  width: 100%;
   display: flex;
   align-items: flex-start;
+  justify-content: center;
+  transition: min-height 0.3s ease;
+}
+
+.form-container.step-email {
+  min-height: 150px;
+}
+
+.form-container.step-username {
+  min-height: 220px;
+}
+
+.form-container.step-name {
+  min-height: 180px;
+}
+
+.form-container.step-password {
+  min-height: 250px;
+}
+
+.form-container.step-password.signup-mode {
+  min-height: 320px;
 }
 
 .form-step {
@@ -96,18 +120,37 @@
   width: 100%;
   opacity: 0;
   transform: translateX(100%);
-  transition: all 0.3s ease-in-out;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
-  min-height: 280px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  z-index: 1;
+  padding: 0;
+  min-height: inherit;
 }
 
 .form-step.active {
   opacity: 1;
   transform: translateX(0);
   pointer-events: all;
+  z-index: 2;
+}
+
+/* Sliding direction for different steps */
+.form-step.slide-out-left {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.form-step.slide-in-from-right {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.form-step.slide-in-from-left {
+  transform: translateX(-100%);
+  opacity: 0;
 }
 
 .signin-form {
@@ -116,6 +159,8 @@
   gap: 20px;
   height: 100%;
   justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
 }
 
 .form-group {
@@ -123,6 +168,7 @@
   flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
+  width: 100%;
 }
 
 .form-group label {
@@ -139,6 +185,8 @@
   transition: border-color 0.2s, box-shadow 0.2s;
   background: var(--yt-bg-primary);
   color: var(--yt-text-primary);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .form-group input:focus {
@@ -196,6 +244,8 @@
   gap: 12px;
   margin-top: auto;
   padding-top: 20px;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .back-btn {
@@ -209,6 +259,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   flex: 1;
+  min-height: 50px;
 }
 
 .back-btn:hover {
@@ -218,6 +269,16 @@
 }
 
 .signin-btn {
+  background: var(--yt-red);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+  min-height: 50px;
   flex: 2;
 }
 
@@ -259,13 +320,13 @@
   background: var(--yt-bg-primary);
   color: var(--yt-text-primary);
   border: 1px solid var(--yt-border);
-  padding: 14px 24px;
+  padding: 10px 20px;
   border-radius: 4px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .google-btn:hover {
@@ -281,22 +342,25 @@
 .signin-footer {
   text-align: center;
   margin-top: auto;
-  padding-top: 20px;
+  padding-top: 12px;
   border-top: 1px solid var(--yt-border);
-  min-height: 120px;
+  min-height: 80px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 16px;
+  gap: 8px;
+  background: transparent;
 }
 
 .signin-footer .google-btn {
   margin-bottom: 0;
+  padding: 10px 20px;
+  font-size: 14px;
 }
 
 .signin-footer p {
   color: var(--yt-text-secondary);
-  font-size: 14px;
+  font-size: 13px;
   margin: 0;
 }
 
@@ -418,25 +482,12 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
 }
 
 /* Ensure consistent spacing for all form groups */
 .form-group:last-of-type {
   margin-bottom: 0;
-}
-
-/* Button positioning */
-.signin-btn {
-  background: var(--yt-red);
-  color: white;
-  border: none;
-  padding: 14px 24px;
-  border-radius: 4px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.2s;
-  min-height: 50px;
 }
 
 /* Responsive Design */
@@ -476,4 +527,92 @@
     padding: 20px 16px;
     margin: 5px;
   }
+}
+
+/* 
+==================================================
+DYNAMIC STEP HEIGHTS - CUSTOMIZATION GUIDE
+==================================================
+
+To change heights for different steps, modify the values below:
+
+📧 EMAIL STEP - Compact size for simple email input
+📛 USERNAME STEP - Medium size for username + validation
+👤 NAME STEP - Small size for name input  
+🔒 PASSWORD STEP - Large size for password + confirm password
+
+You can adjust these values to your preference:
+*/
+
+/* Dynamic heights for different steps */
+.signin-card.step-email {
+  min-height: 410px;
+}
+
+.signin-card.step-username {
+  min-height: 490px;
+}
+
+.signin-card.step-name {
+  min-height: 430px;
+}
+
+.signin-card.step-password {
+  min-height: 550px;
+}
+
+.signin-card.step-password.signup-mode {
+  min-height: 590px;
+}
+
+/* 
+==================================================
+PURPLE AREA CONTROL - CUSTOMIZATION GUIDE
+==================================================
+
+To control the purple/footer area, modify these values:
+
+1. .signin-footer min-height - Controls footer size
+2. .divider margin - Controls space around "or" divider
+3. .google-btn padding - Controls button size
+*/
+
+.signin-footer {
+  text-align: center;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--yt-border);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+}
+
+/* Divider (OR section) customization */
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  text-align: center;
+  position: relative;
+}
+
+.google-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--yt-bg-primary);
+  color: var(--yt-text-primary);
+  border: 1px solid var(--yt-border);
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
 } 

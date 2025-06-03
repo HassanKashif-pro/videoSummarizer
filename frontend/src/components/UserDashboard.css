@@ -31,10 +31,33 @@
   margin: 0;
 }
 
-.signout-btn {
+.header-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.home-btn {
   background: transparent;
   border: 1px solid var(--yt-border);
-  color: var(--yt-text-secondary);
+  color: var(--yt-text-primary);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.home-btn:hover {
+  background: var(--yt-bg-hover);
+  border-color: var(--yt-text-secondary);
+}
+
+.signout-btn {
+  background: transparent;
+  border: 1px solid var(--yt-red);
+  color: var(--yt-red);
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 14px;

@@ -15,39 +15,44 @@ function AuthWrapper() {
 
   // Check for existing authentication on app load
   useEffect(() => {
-    const savedAuth = localStorage.getItem('videoSummarizerAuth');
-    const savedUser = localStorage.getItem('videoSummarizerUser');
+    const authenticated = authService.isAuthenticated();
+    const currentUser = authService.getCurrentUser();
     
-    if (savedAuth === 'true' && savedUser) {
+    if (authenticated && currentUser) {
       setIsAuthenticated(true);
-      setUser(JSON.parse(savedUser));
+      setUser({ 
+        name: currentUser.name || currentUser.username, 
+        email: currentUser.email 
+      });
     }
     setIsLoading(false);
   }, []);
 
   // Sign in handler
   const handleSignIn = async (email: string, password: string) => {
-    // Simple demo authentication - any email/password works
-    const userData = { name: 'John Doe', email };
-    setUser(userData);
-    setIsAuthenticated(true);
+    // Use authService for authentication
+    const result = await authService.signIn({ email, password });
     
-    // Persist authentication state
-    localStorage.setItem('videoSummarizerAuth', 'true');
-    localStorage.setItem('videoSummarizerUser', JSON.stringify(userData));
-    
-    // Navigate to main app
-    navigate('/');
+    if (result.success && result.user) {
+      const userData = { 
+        name: result.user.name || result.user.username, 
+        email: result.user.email 
+      };
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      // Navigate to main app
+      navigate('/');
+    } else {
+      console.error('Sign in failed:', result.message);
+    }
   };
 
   // Sign out handler
   const handleSignOut = () => {
+    authService.signOut();
     setIsAuthenticated(false);
     setUser({ name: 'Guest User', email: 'guest@example.com' });
-    
-    // Clear authentication state
-    localStorage.removeItem('videoSummarizerAuth');
-    localStorage.removeItem('videoSummarizerUser');
     
     // Navigate to sign-in
     navigate('/signin');
@@ -67,11 +72,15 @@ function AuthWrapper() {
     );
   }
 
-                  return (
+  return (
     <Routes>
       <Route 
         path="/signin" 
         element={<SignIn onSignIn={handleSignIn} />} 
+      />
+      <Route 
+        path="/dashboard" 
+        element={<UserDashboard onSignOut={handleSignOut} />} 
       />
       <Route 
         path="/" 
@@ -121,11 +130,37 @@ function App() {
 
   return (
     <Router>
-      {isAuthenticated ? (
-        <UserDashboard onSignOut={handleSignOut} />
-      ) : (
-        <AuthWrapper />
-      )}
+      <Routes>
+        <Route 
+          path="/signin" 
+          element={
+            isAuthenticated ? 
+            <Navigate to="/" replace /> : 
+            <SignIn onSignIn={handleSignIn} />
+          } 
+        />
+        <Route 
+          path="/dashboard" 
+          element={
+            isAuthenticated ? 
+            <UserDashboard onSignOut={handleSignOut} /> : 
+            <Navigate to="/signin" replace />
+          } 
+        />
+        <Route 
+          path="/" 
+          element={
+            isAuthenticated ? 
+            <AuthWrapper /> : 
+            <Navigate to="/signin" replace />
+          } 
+        />
+        {/* Redirect any unknown routes */}
+        <Route 
+          path="*" 
+          element={<Navigate to={isAuthenticated ? "/" : "/signin"} replace />} 
+        />
+      </Routes>
     </Router>
   );
 }

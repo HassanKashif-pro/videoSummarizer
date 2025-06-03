@@ -50,7 +50,6 @@
   position: absolute;
   top: 100%;
   right: -12%;
-  height: 45px;
   background: var(--yt-bg-card);
   border: 1px solid var(--yt-border);
   border-radius: 6px;
@@ -64,23 +63,51 @@
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 26px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 12px 16px;
   width: 100%;
-  height: 100%;
   border: none;
   background: transparent;
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-family: inherit;
-  font-size: 16px;
-  color: #000000;
+  font-size: 14px;
+  color: var(--yt-text-primary);
   text-align: left;
   font-weight: 500;
 }
 
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
 .dropdown-item:hover {
   background: var(--yt-bg-hover);
+}
+
+.dropdown-item i {
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+  color: var(--yt-text-secondary);
+}
+
+.dropdown-item:has(i.fa-chart-line) {
+  color: var(--yt-text-primary);
+  margin-bottom: 5px;
+  margin-top: 1px;
+}
+
+.dropdown-item:has(i.fa-chart-line):hover {
+  color: #f44336;
+}
+
+.dropdown-item:has(i.fa-right-from-bracket) {
+  color: var(--yt-text-primary);
+}
+
+.dropdown-item:has(i.fa-right-from-bracket):hover {
+  color: #f44336;
 }
 
 .dropdown-item.user-info {

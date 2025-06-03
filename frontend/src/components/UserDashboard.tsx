@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authService, User } from '../services/authService';
 import './UserDashboard.css';
 
@@ -7,6 +8,7 @@ interface UserDashboardProps {
 }
 
 function UserDashboard({ onSignOut }: UserDashboardProps) {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -109,9 +111,14 @@ function UserDashboard({ onSignOut }: UserDashboardProps) {
       <div className="dashboard-card">
         <div className="dashboard-header">
           <h1>Video Summarizer Dashboard</h1>
-          <button onClick={handleSignOut} className="signout-btn">
-            Sign Out
-          </button>
+          <div className="header-buttons">
+            <button onClick={() => navigate('/')} className="home-btn">
+              Return To Home
+            </button>
+            <button onClick={handleSignOut} className="signout-btn">
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {message && (

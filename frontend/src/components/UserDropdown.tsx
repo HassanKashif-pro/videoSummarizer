@@ -37,6 +37,11 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
     navigate('/signin');
   };
 
+  const handleDashboard = () => {
+    setIsOpen(false);
+    navigate('/dashboard');
+  };
+
   return (
     <div className="user-dropdown" ref={dropdownRef}>
       <button 
@@ -55,10 +60,16 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
               Sign In
             </button>
           ) : (
-            <button className="dropdown-item" onClick={handleSignOut}>
-              <i className="fa-solid fa-right-from-bracket"></i>
-              Sign Out
-            </button>
+            <>
+              <button className="dropdown-item" onClick={handleDashboard}>
+                <i className="fa-solid fa-chart-line"></i>
+                Dashboard
+              </button>
+              <button className="dropdown-item" onClick={handleSignOut}>
+                <i className="fa-solid fa-right-from-bracket"></i>
+                Sign Out
+              </button>
+            </>
           )}
         </div>
       )}
