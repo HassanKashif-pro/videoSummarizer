@@ -11,7 +11,6 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const isGuest = userName === 'Guest User';
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -32,11 +31,6 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
     onSignOut();
   };
 
-  const handleSignIn = () => {
-    setIsOpen(false);
-    navigate('/signin');
-  };
-
   const handleDashboard = () => {
     setIsOpen(false);
     navigate('/dashboard');
@@ -54,23 +48,14 @@ function UserDropdown({ userName, onSignOut }: UserDropdownProps) {
       
       {isOpen && (
         <div className="dropdown-menu">
-          {isGuest ? (
-            <button className="dropdown-item" onClick={handleSignIn}>
-              <i className="fa-solid fa-right-to-bracket"></i>
-              Sign In
-            </button>
-          ) : (
-            <>
-              <button className="dropdown-item" onClick={handleDashboard}>
-                <i className="fa-solid fa-chart-line"></i>
-                Dashboard
-              </button>
-              <button className="dropdown-item" onClick={handleSignOut}>
-                <i className="fa-solid fa-right-from-bracket"></i>
-                Sign Out
-              </button>
-            </>
-          )}
+          <button className="dropdown-item" onClick={handleDashboard}>
+            <i className="fa-solid fa-chart-line"></i>
+            Dashboard
+          </button>
+          <button className="dropdown-item" onClick={handleSignOut}>
+            <i className="fa-solid fa-right-from-bracket"></i>
+            Sign Out
+          </button>
         </div>
       )}
     </div>

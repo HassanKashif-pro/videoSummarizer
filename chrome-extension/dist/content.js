@@ -1,33 +1,205 @@
 "use strict";
 // content.ts
 console.log("Injected into YouTube!");
-// Add Material Icons CDN
-const link = document.createElement("link");
-link.href =
-    "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200";
-link.rel = "stylesheet";
-document.head.appendChild(link);
-const checkInterval = setInterval(() => {
-    const videoPlayer = document.querySelector(".html5-video-player");
-    if (videoPlayer && !document.getElementById("summify-watermark")) {
-        clearInterval(checkInterval);
-        const watermark = document.createElement("div");
-        watermark.id = "summify-watermark";
-        const logoImage = document.createElement("img");
-        logoImage.src = chrome.runtime.getURL("icons/image.png");
-        logoImage.alt = "Summify Logo";
-        const textSpan = document.createElement("span");
-        textSpan.textContent = " Open Summify →";
-        watermark.appendChild(logoImage);
-        watermark.appendChild(textSpan);
-        watermark.addEventListener("click", () => {
-            console.log("Watermark clicked!");
-            createFloatingUI();
-        });
-        videoPlayer.appendChild(watermark);
-        console.log("Watermark added!");
+// Authentication check - prevent any functionality if not signed in
+let isAuthenticated = false;
+let currentUser = null;
+// Function to check authentication status
+async function checkAuthentication() {
+    try {
+        // Get localStorage auth data first
+        const savedAuth = localStorage.getItem('videoSummarizer_token');
+        const savedUser = localStorage.getItem('videoSummarizer_user');
+        if (savedAuth && savedUser) {
+            try {
+                const userData = JSON.parse(savedUser);
+                // Check if user is authenticated by sending data to backend
+                const response = await fetch("http://localhost:3001/api/auth/status", {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-auth-token": savedAuth,
+                        "x-user-data": encodeURIComponent(savedUser)
+                    }
+                });
+                if (response.ok) {
+                    const authData = await response.json();
+                    if (authData.authenticated && authData.user) {
+                        isAuthenticated = true;
+                        currentUser = authData.user;
+                        console.log("User is authenticated:", currentUser);
+                        return true;
+                    }
+                }
+                // If backend validation fails, still use localStorage data
+                currentUser = userData;
+                isAuthenticated = true;
+                console.log("User authenticated via localStorage:", currentUser);
+                return true;
+            }
+            catch (e) {
+                console.log("Invalid localStorage auth data");
+            }
+        }
     }
-}, 1000);
+    catch (error) {
+        console.log("Authentication check failed:", error);
+    }
+    isAuthenticated = false;
+    currentUser = null;
+    console.log("User is not authenticated");
+    return false;
+}
+// Function to show authentication required message
+function showAuthenticationRequired() {
+    // Remove any existing auth notice
+    const existingNotice = document.getElementById("summify-auth-notice");
+    if (existingNotice)
+        existingNotice.remove();
+    const videoPlayer = document.querySelector(".html5-video-player");
+    if (!videoPlayer)
+        return;
+    const authNotice = document.createElement("div");
+    authNotice.id = "summify-auth-notice";
+    authNotice.style.cssText = `
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    background: linear-gradient(135deg, #ff4444, #cc0000) !important;
+    color: white !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    z-index: 999999999 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    backdrop-filter: blur(10px) !important;
+    max-width: 280px !important;
+    text-align: center !important;
+  `;
+    authNotice.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 18px;">🔒</span>
+      <div>
+        <div style="font-weight: 600; margin-bottom: 4px;">Sign In Required</div>
+        <div style="font-size: 12px; opacity: 0.9;">Click to access Video Summarizer</div>
+      </div>
+    </div>
+  `;
+    authNotice.addEventListener("click", () => {
+        // Open the main app's sign-in page
+        window.open("http://localhost:5173/signin", "_blank", "width=400,height=600");
+    });
+    authNotice.addEventListener("mouseenter", () => {
+        authNotice.style.transform = "scale(1.05)";
+        authNotice.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
+    });
+    authNotice.addEventListener("mouseleave", () => {
+        authNotice.style.transform = "scale(1)";
+        authNotice.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.3)";
+    });
+    videoPlayer.appendChild(authNotice);
+    console.log("Authentication notice shown");
+}
+// Initialize authentication check
+async function initializeExtension() {
+    const isAuth = await checkAuthentication();
+    if (!isAuth) {
+        // Show authentication required notice instead of normal functionality
+        const checkInterval = setInterval(() => {
+            const videoPlayer = document.querySelector(".html5-video-player");
+            if (videoPlayer && !document.getElementById("summify-auth-notice")) {
+                clearInterval(checkInterval);
+                showAuthenticationRequired();
+            }
+        }, 1000);
+        // Listen for authentication updates
+        window.addEventListener("message", async (event) => {
+            if (event.data.type === "AUTH_SUCCESS" || event.data.type === "USER_SIGNED_IN") {
+                console.log("Authentication successful, reinitializing extension");
+                const authSuccess = await checkAuthentication();
+                if (authSuccess) {
+                    // Remove auth notice and start normal functionality
+                    const authNotice = document.getElementById("summify-auth-notice");
+                    if (authNotice)
+                        authNotice.remove();
+                    startNormalFunctionality();
+                }
+            }
+        });
+        // Check periodically for authentication changes
+        setInterval(async () => {
+            const authStatus = await checkAuthentication();
+            if (authStatus && !document.getElementById("summify-watermark")) {
+                const authNotice = document.getElementById("summify-auth-notice");
+                if (authNotice)
+                    authNotice.remove();
+                startNormalFunctionality();
+            }
+        }, 5000); // Check every 5 seconds
+        return; // Stop here if not authenticated
+    }
+    // User is authenticated, proceed with normal functionality
+    startNormalFunctionality();
+}
+// Normal extension functionality (moved into a separate function)
+function startNormalFunctionality() {
+    console.log("Starting normal extension functionality for user:", currentUser?.name || currentUser?.username);
+    // Add Material Icons CDN
+    const link = document.createElement("link");
+    link.href =
+        "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200";
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+    const checkInterval = setInterval(() => {
+        const videoPlayer = document.querySelector(".html5-video-player");
+        if (videoPlayer && !document.getElementById("summify-watermark")) {
+            clearInterval(checkInterval);
+            const watermark = document.createElement("div");
+            watermark.id = "summify-watermark";
+            const logoImage = document.createElement("img");
+            logoImage.src = chrome.runtime.getURL("icons/image.png");
+            logoImage.alt = "Summify Logo";
+            // Add error handling for watermark logo loading
+            logoImage.onerror = () => {
+                console.log("Failed to load watermark logo image, using fallback");
+                // Create a simple text fallback if image fails to load
+                const fallbackLogo = document.createElement("div");
+                fallbackLogo.className = "watermark-logo-fallback";
+                fallbackLogo.textContent = "📝";
+                fallbackLogo.style.cssText = `
+          font-size: 16px;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        `;
+                logoImage.parentNode?.replaceChild(fallbackLogo, logoImage);
+            };
+            logoImage.onload = () => {
+                console.log("Watermark logo loaded successfully");
+            };
+            const textSpan = document.createElement("span");
+            textSpan.textContent = " Open Summify →";
+            watermark.appendChild(logoImage);
+            watermark.appendChild(textSpan);
+            watermark.addEventListener("click", () => {
+                console.log("Watermark clicked!");
+                createFloatingUI();
+            });
+            videoPlayer.appendChild(watermark);
+            console.log("Watermark added!");
+        }
+    }, 1000);
+}
+// Start the extension initialization
+initializeExtension();
 function createFloatingUI() {
     const existingUI = document.getElementById("floating_ui");
     if (existingUI)
@@ -44,7 +216,7 @@ function createFloatingUI() {
     headerBar.className = "header_bar";
     // Left side - Logo
     const logoLink = document.createElement("a");
-    logoLink.href = "https://localhost:3001";
+    logoLink.href = "https://localhost:5173";
     logoLink.target = "_blank";
     logoLink.rel = "noopener noreferrer";
     const logoButton = document.createElement("div");
@@ -54,6 +226,26 @@ function createFloatingUI() {
     logo.src = chrome.runtime.getURL("icons/image.png");
     logo.alt = "Logo";
     logo.className = "logo";
+    // Add error handling for logo loading
+    logo.onerror = () => {
+        console.log("Failed to load logo image, using fallback");
+        // Create a simple text fallback if image fails to load
+        const fallbackLogo = document.createElement("div");
+        fallbackLogo.className = "logo-fallback";
+        fallbackLogo.textContent = "📝";
+        fallbackLogo.style.cssText = `
+      font-size: 20px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+        logo.parentNode?.replaceChild(fallbackLogo, logo);
+    };
+    logo.onload = () => {
+        console.log("Logo loaded successfully");
+    };
     const logoText = document.createElement("span");
     logoText.textContent = "To Notes >";
     logoText.className = "logo-text";

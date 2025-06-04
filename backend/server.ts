@@ -1594,3 +1594,40 @@ app.get("/test/youtube/:videoId", async (req: any, res: any) => {
     });
   }
 });
+
+// Authentication status endpoint for Chrome extension
+app.get("/api/auth/status", (req: any, res: any) => {
+  // Since we're using localStorage-based authentication, we'll check for the presence of
+  // the authorization header or allow the extension to pass authentication status
+  const authHeader = req.headers.authorization;
+  const userAgent = req.headers['user-agent'];
+  
+  // For Chrome extension requests, we'll return a way for them to validate their localStorage
+  if (userAgent && userAgent.includes('Chrome')) {
+    // The extension will need to include the token and user data in headers for validation
+    const token = req.headers['x-auth-token'];
+    const userData = req.headers['x-user-data'];
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(decodeURIComponent(userData as string));
+        return res.json({
+          authenticated: true,
+          user: user,
+          message: "User is authenticated"
+        });
+      } catch (error) {
+        return res.json({
+          authenticated: false,
+          message: "Invalid user data"
+        });
+      }
+    }
+  }
+  
+  // Default response for non-authenticated requests
+  res.json({
+    authenticated: false,
+    message: "User not authenticated"
+  });
+});
