@@ -227,6 +227,7 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow: visible !important;
 }
 
 .notebook-header {
@@ -239,6 +240,7 @@ button:focus-visible {
   color: var(--yt-text-primary);
   background-color: transparent;
   border: 1px solid transparent;
+  overflow: visible !important;
 }
 
 .notebook-toggle {
@@ -274,6 +276,7 @@ button:focus-visible {
   border-radius: 8px;
   margin: 8px 0;
   border: 1px solid var(--yt-border);
+  overflow: visible !important;
 }
 
 .note-item {
@@ -284,6 +287,7 @@ button:focus-visible {
   border-radius: 6px;
   margin: 2px 4px;
   background-color: transparent;
+  overflow: visible !important;
 }
 
 .note-item:hover {
@@ -947,4 +951,195 @@ button:focus-visible {
 
 .retry-button:hover {
   background: #d32f2f;
+}
+
+/* Drag and Drop Styles */
+.note-item[draggable="true"] {
+  cursor: grab !important;
+}
+
+.note-item[draggable="true"]:active {
+  cursor: grabbing !important;
+}
+
+.note-item.dragging {
+  opacity: 0.5 !important;
+  transform: rotate(5deg) !important;
+}
+
+.notebook-header.drag-over {
+  background-color: rgba(204, 0, 0, 0.1) !important;
+  border: 2px dashed var(--yt-red) !important;
+  transform: scale(1.02) !important;
+  box-shadow: 0 4px 12px rgba(204, 0, 0, 0.2) !important;
+}
+
+.video-title-item:hover .fa-grip-vertical {
+  color: var(--yt-red) !important;
+}
+
+.drag-feedback {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  background: var(--yt-bg-card);
+  border: 1px solid var(--yt-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: rotate(5deg);
+  opacity: 0.9;
+}
+
+/* Enhanced visual feedback for drag states */
+.notebook-header {
+  position: relative;
+  overflow: hidden;
+}
+
+.notebook-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(204, 0, 0, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.notebook-header.drag-over::before {
+  left: 100%;
+}
+
+/* Ensure menu positioning - Keep video items in normal flow */
+.video-title-item {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.video-options {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+/* Video Options Menu - Simple Absolute Positioning */
+.video-options-menu {
+  position: absolute !important;
+  left: 0 !important;
+  top: 100% !important;
+  margin-top: 5px !important;
+  z-index: 1000 !important;
+  background-color: var(--yt-bg-card) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+  min-width: 180px !important;
+  padding: 8px 0 !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  /* Ensure it's always visible */
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.video-options-menu:hover{
+  /* Remove excessive z-index - not needed */
+}
+
+/* Video Options Menu Buttons - Anti-Glitch Hover Effect */
+.video-options-menu button {
+  display: flex !important;
+  align-items: center !important;
+  padding: 12px 16px !important;
+  width: 100% !important;
+  border: none !important;
+  background-color: transparent !important;
+  cursor: pointer !important;
+  font-size: 0.9em !important;
+  color: var(--yt-text-primary) !important;
+  transition: all 0.2s ease !important;
+  font-family: inherit !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  position: relative !important;
+  /* Prevent hover glitches */
+  pointer-events: auto !important;
+  backface-visibility: hidden !important;
+  /* Reasonable z-index */
+  z-index: 1 !important;
+}
+
+/* Add left border using pseudo-element to avoid layout shifts */
+.video-options-menu button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+  z-index: 1 !important;
+}
+
+.video-options-menu button:hover {
+  background-color: var(--yt-bg-hover) !important;
+  z-index: 2 !important;
+}
+
+.video-options-menu button:hover::before {
+  background-color: var(--yt-red) !important;
+}
+
+.video-options-menu button:last-child {
+  color: #dc3545 !important;
+}
+
+.video-options-menu button:last-child:hover {
+  background-color: #fff5f5 !important;
+  z-index: 2 !important;
+}
+
+.video-options-menu button:last-child:hover::before {
+  background-color: #dc3545 !important;
+}
+
+.video-options-menu button i {
+  margin-right: 12px !important;
+  font-size: 0.9em !important;
+  width: 16px !important;
+  color: var(--yt-text-secondary) !important;
+  text-align: center !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.video-options-menu button:hover i {
+  z-index: 1 !important;
+  opacity: 0.8 !important;
+}
+
+.video-options-menu button:last-child i {
+  color: #dc3545 !important;
+}
+
+/* Sidebar and container overflow settings */
+.sidebar {
+  overflow: visible !important;
+}
+
+.sidebar-content {
+  overflow: visible !important;
+}
+
+.notes-list {
+  overflow: visible !important;
+}
+
+.notebook-item {
+  overflow: visible !important;
+}
+
+.note-item {
+  overflow: visible !important;
 }

@@ -2,6 +2,7 @@ import express from "express";
 import {
   getVideoSummary,
   saveVideoNote,
+  updateVideoCategory,
   // getVideoCategory,
 } from "../controllers/videoController";
 
@@ -21,6 +22,16 @@ router.post("/save", async (req, res) => {
     await saveVideoNote(req, res);
   } catch (error) {
     console.error("Error in video save route:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// New route for updating video category (drag and drop)
+router.put("/update-category", async (req, res) => {
+  try {
+    await updateVideoCategory(req, res);
+  } catch (error) {
+    console.error("Error in update category route:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

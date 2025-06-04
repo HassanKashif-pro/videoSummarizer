@@ -480,3 +480,37 @@ export const deleteVideoNote = async (req: Request, res: Response) => {
 //     res.status(500).json({ error: "Failed to fetch video category" });
 //   }
 // };
+
+// Update video note category (for drag and drop functionality)
+export const updateVideoCategory = async (req: Request, res: Response) => {
+  try {
+    const { videoUrl, newCategory } = req.body;
+
+    if (!videoUrl || !newCategory) {
+      return res.status(400).json({ error: "Missing video URL or new category" });
+    }
+
+    console.log(`🔄 Updating category for video ${videoUrl} to: ${newCategory}`);
+
+    // Update all notes for this video to the new category
+    const result = await VideoNote.updateMany(
+      { videoUrl: videoUrl },
+      { $set: { category: newCategory } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "No notes found for this video" });
+    }
+
+    console.log(`✅ Updated ${result.modifiedCount} notes to category: ${newCategory}`);
+
+    res.json({
+      success: true,
+      modifiedCount: result.modifiedCount,
+      newCategory: newCategory
+    });
+  } catch (error) {
+    console.error("❌ Error updating video category:", error);
+    res.status(500).json({ error: "Failed to update video category" });
+  }
+};

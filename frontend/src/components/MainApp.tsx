@@ -350,6 +350,7 @@ function MainApp({ user, onSignOut }: MainAppProps) {
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
         onSelectVideo={handleVideoSelect}
+        onRefreshNotes={refreshNotes}
       />
 
       {/* Main Content Area */}
