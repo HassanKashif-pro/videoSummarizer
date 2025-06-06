@@ -20,7 +20,7 @@ const path = require("path");
 const https = require("https");
 const HttpsProxyAgent = require("https-proxy-agent");
 const { connectDB } = require("./services/database");
-const { saveVideoNote, getVideoNotes, getVideoNote, deleteVideoNote, } = require("./controllers/videoController");
+const { saveVideoNote, getVideoNotes, getVideoNote, deleteVideoNote, updateVideoCategory, deleteVideo, renameVideo, } = require("./controllers/videoController");
 // Initialize APIs and constants
 const youtube = google.youtube("v3");
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
@@ -1189,6 +1189,10 @@ app.post("/api/videos/save", saveVideoNote);
 app.get("/api/videos/notes", getVideoNotes);
 app.get("/api/videos/notes/:noteId", getVideoNote);
 app.delete("/api/videos/notes/:noteId", deleteVideoNote);
+app.put("/api/videos/update-category", updateVideoCategory);
+// Add new routes for video operations
+app.delete("/api/videos/:videoUrl", deleteVideo);
+app.put("/api/videos/rename", renameVideo);
 // Add a new endpoint to test YouTube API with a specific video
 app.get("/test/youtube/:videoId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
@@ -1253,3 +1257,37 @@ app.get("/test/youtube/:videoId", (req, res) => __awaiter(void 0, void 0, void 0
         });
     }
 }));
+// Authentication status endpoint for Chrome extension
+app.get("/api/auth/status", (req, res) => {
+    // Since we're using localStorage-based authentication, we'll check for the presence of
+    // the authorization header or allow the extension to pass authentication status
+    const authHeader = req.headers.authorization;
+    const userAgent = req.headers['user-agent'];
+    // For Chrome extension requests, we'll return a way for them to validate their localStorage
+    if (userAgent && userAgent.includes('Chrome')) {
+        // The extension will need to include the token and user data in headers for validation
+        const token = req.headers['x-auth-token'];
+        const userData = req.headers['x-user-data'];
+        if (token && userData) {
+            try {
+                const user = JSON.parse(decodeURIComponent(userData));
+                return res.json({
+                    authenticated: true,
+                    user: user,
+                    message: "User is authenticated"
+                });
+            }
+            catch (error) {
+                return res.json({
+                    authenticated: false,
+                    message: "Invalid user data"
+                });
+            }
+        }
+    }
+    // Default response for non-authenticated requests
+    res.json({
+        authenticated: false,
+        message: "User not authenticated"
+    });
+});

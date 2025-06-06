@@ -514,3 +514,70 @@ export const updateVideoCategory = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to update video category" });
   }
 };
+
+// Delete all notes for a specific video
+export const deleteVideo = async (req: Request, res: Response) => {
+  try {
+    const { videoUrl } = req.params;
+
+    if (!videoUrl) {
+      return res.status(400).json({ error: "Missing video URL" });
+    }
+
+    const decodedVideoUrl = decodeURIComponent(videoUrl);
+    console.log(`🗑️ Deleting all notes for video: ${decodedVideoUrl}`);
+
+    // Delete all notes for this video
+    const result = await VideoNote.deleteMany({ videoUrl: decodedVideoUrl });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "No notes found for this video" });
+    }
+
+    console.log(`✅ Deleted ${result.deletedCount} notes for video: ${decodedVideoUrl}`);
+
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: "Video and all its notes deleted successfully"
+    });
+  } catch (error) {
+    console.error("❌ Error deleting video:", error);
+    res.status(500).json({ error: "Failed to delete video" });
+  }
+};
+
+// Rename video title for all notes
+export const renameVideo = async (req: Request, res: Response) => {
+  try {
+    const { videoUrl, newTitle } = req.body;
+
+    if (!videoUrl || !newTitle) {
+      return res.status(400).json({ error: "Missing video URL or new title" });
+    }
+
+    console.log(`📝 Renaming video "${videoUrl}" to: ${newTitle}`);
+
+    // Update video title for all notes of this video
+    const result = await VideoNote.updateMany(
+      { videoUrl: videoUrl },
+      { $set: { videoTitle: newTitle } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "No notes found for this video" });
+    }
+
+    console.log(`✅ Renamed video title for ${result.modifiedCount} notes`);
+
+    res.json({
+      success: true,
+      modifiedCount: result.modifiedCount,
+      newTitle: newTitle,
+      message: "Video renamed successfully"
+    });
+  } catch (error) {
+    console.error("❌ Error renaming video:", error);
+    res.status(500).json({ error: "Failed to rename video" });
+  }
+};

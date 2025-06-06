@@ -86,6 +86,7 @@ button:focus-visible {
 .app-container {
   display: flex;
   width: 100%;
+  overflow: hidden;
   height: 100vh;
   font-family: inherit;
   background-color: var(--yt-bg-primary);
@@ -94,7 +95,8 @@ button:focus-visible {
 /* Sidebar Container */
 .sidebar-container {
   position: relative;
-  height: 100%;
+  overflow-y: auto;
+  height: 100%
 }
 
 /* Sidebar Toggle Button */
@@ -370,40 +372,101 @@ button:focus-visible {
 }
 
 .options-menu {
+  position: static !important;
+  width: 35% !important;
+  right: 30% !important; 
+  margin-top: 3px !important;
+  margin-left: 15px !important;
+  background-color: var(--yt-bg-card) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+  overflow: hidden !important;
+  min-width: 120px !important;
+  max-width: 140px !important;
+  padding: 4px 0 !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  /* Ensure it's always visible */
+  opacity: 1 !important;
+  visibility: visible !important;
+  /* Make it part of the normal flow */
   display: none;
-  position: absolute;
-  right: 0;
-  top: 32px;
-  background-color: var(--yt-bg-card);
-  border: 1px solid var(--yt-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--yt-shadow-hover);
-  z-index: 20;
-  overflow: hidden;
+  z-index: 1000;
+  flex-direction: column;
+  font-family: inherit;
+  isolation: isolate;
 }
 
 .options-menu.open {
-  display: block;
+  display: block !important;
 }
 
 .options-menu button {
-  display: block;
-  width: 100%;
-  padding: 10px 16px;
-  background: none;
-  border: none;
-  text-align: left;
-  color: var(--yt-text-primary);
-  cursor: pointer;
-  font-size: 0.85em;
-  transition: all 0.2s ease;
-  border-radius: 0;
-  box-shadow: none;
+  display: flex !important;
+  align-items: center !important;
+  padding: 8px 12px !important;
+  width: 100% !important;
+  border: none !important;
+  background-color: transparent !important;
+  cursor: pointer !important;
+  font-size: 0.8em !important;
+  color: var(--yt-text-primary) !important;
+  transition: all 0.2s ease !important;
+  font-family: inherit !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  position: relative !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  gap: 8px !important;
+  /* Remove z-index conflicts */
+}
+
+/* Add left border using pseudo-element to avoid layout shifts */
+.options-menu button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
 }
 
 .options-menu button:hover {
-  background-color: var(--yt-bg-hover);
-  transform: none;
+  background-color: var(--yt-bg-hover) !important;
+}
+
+.options-menu button:hover::before {
+  background-color: var(--yt-red) !important;
+}
+
+.options-menu button:last-child {
+  color: #dc3545 !important;
+}
+
+.options-menu button:last-child:hover {
+  background-color: #fff5f5 !important;
+}
+
+.options-menu button:last-child:hover::before {
+  background-color: #dc3545 !important;
+}
+
+.options-menu button i {
+  margin-right: 8px !important;
+  font-size: 0.8em !important;
+  width: 12px !important;
+  color: var(--yt-text-secondary) !important;
+  text-align: center !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.options-menu button:hover i {
+  z-index: 1 !important;
+  opacity: 0.8 !important;
 }
 
 .category-icon {
@@ -1023,51 +1086,47 @@ button:focus-visible {
   overflow: visible !important;
 }
 
-/* Video Options Menu - Simple Absolute Positioning */
+/* Video Options Menu - Integrated into Document Flow */
 .video-options-menu {
-  position: absolute !important;
+  position: static !important;
+  width: 35% !important;
   left: 0 !important;
-  top: 100% !important;
-  margin-top: 5px !important;
-  z-index: 1000 !important;
+  margin-top: 3px !important;
+  margin-left: 15px !important;
   background-color: var(--yt-bg-card) !important;
   border: none !important;
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
   overflow: hidden !important;
-  min-width: 180px !important;
-  padding: 8px 0 !important;
+  min-width: 120px !important;
+  max-width: 140px !important;
+  padding: 4px 0 !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
   /* Ensure it's always visible */
   opacity: 1 !important;
   visibility: visible !important;
-}
-.video-options-menu:hover{
-  /* Remove excessive z-index - not needed */
+  /* Make it part of the normal flow */
+  display: block !important;
 }
 
-/* Video Options Menu Buttons - Anti-Glitch Hover Effect */
+/* Video Options Menu Buttons - Flow-Based Design */
 .video-options-menu button {
   display: flex !important;
   align-items: center !important;
-  padding: 12px 16px !important;
+  padding: 8px 12px !important;
   width: 100% !important;
   border: none !important;
   background-color: transparent !important;
   cursor: pointer !important;
-  font-size: 0.9em !important;
+  font-size: 0.8em !important;
   color: var(--yt-text-primary) !important;
   transition: all 0.2s ease !important;
   font-family: inherit !important;
   font-weight: 400 !important;
   text-align: left !important;
   position: relative !important;
-  /* Prevent hover glitches */
-  pointer-events: auto !important;
-  backface-visibility: hidden !important;
-  /* Reasonable z-index */
-  z-index: 1 !important;
+  /* Remove z-index conflicts */
 }
 
 /* Add left border using pseudo-element to avoid layout shifts */
@@ -1080,12 +1139,10 @@ button:focus-visible {
   width: 3px;
   background-color: transparent;
   transition: background-color 0.2s ease;
-  z-index: 1 !important;
 }
 
 .video-options-menu button:hover {
   background-color: var(--yt-bg-hover) !important;
-  z-index: 2 !important;
 }
 
 .video-options-menu button:hover::before {
@@ -1098,7 +1155,6 @@ button:focus-visible {
 
 .video-options-menu button:last-child:hover {
   background-color: #fff5f5 !important;
-  z-index: 2 !important;
 }
 
 .video-options-menu button:last-child:hover::before {
@@ -1106,9 +1162,9 @@ button:focus-visible {
 }
 
 .video-options-menu button i {
-  margin-right: 12px !important;
-  font-size: 0.9em !important;
-  width: 16px !important;
+  margin-right: 8px !important;
+  font-size: 0.8em !important;
+  width: 12px !important;
   color: var(--yt-text-secondary) !important;
   text-align: center !important;
   transition: opacity 0.2s ease !important;
@@ -1143,3 +1199,45 @@ button:focus-visible {
 .note-item {
   overflow: visible !important;
 }
+
+/* Make video header compact when menu is open */
+.video-title-item:has(.video-options-menu) {
+  padding: 6px 8px !important;
+  margin: 1px 2px !important;
+}
+
+.video-title-item:has(.video-options-menu) .note-title {
+  padding: 2px !important;
+  font-size: 0.8em !important;
+}
+
+.video-title-item:has(.video-options-menu) .video-icon {
+  width: 20px !important;
+  height: 20px !important;
+  margin-right: 6px !important;
+}
+
+/* Make category header compact when dropdown menu is open */
+.notebook-header:has(.options-menu.open) {
+  padding: 4px 8px !important;
+  margin: 1px 2px !important;
+  min-height: 20px !important;
+}
+
+.notebook-header:has(.options-menu.open) .notebook-toggle {
+  font-size: 0.7em !important;
+  opacity: 0.6 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+.notebook-header:has(.options-menu.open) .category-icon {
+  font-size: 0.7em !important;
+  margin-right: 4px !important;
+}
+
+.notebook-header:has(.options-menu.open) .notebook-toggle i {
+  font-size: 0.7em !important;
+  margin-right: 6px !important;
+}
+

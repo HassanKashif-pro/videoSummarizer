@@ -33,6 +33,16 @@ router.post("/save", (req, res) => __awaiter(void 0, void 0, void 0, function* (
         res.status(500).json({ error: "Internal Server Error" });
     }
 }));
+// New route for updating video category (drag and drop)
+router.put("/update-category", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield (0, videoController_1.updateVideoCategory)(req, res);
+    }
+    catch (error) {
+        console.error("Error in update category route:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+}));
 // // Add new route for getting video category
 // router.get("/category/:videoId", async (req, res) => {
 //   try {

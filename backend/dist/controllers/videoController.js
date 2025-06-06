@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteVideoNote = exports.getVideoNote = exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
+exports.renameVideo = exports.deleteVideo = exports.updateVideoCategory = exports.deleteVideoNote = exports.getVideoNote = exports.getVideoNotes = exports.saveVideoNote = exports.getVideoSummary = exports.fetchTranscript = void 0;
 const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const youtube_transcript_api_1 = require("youtube-transcript-api");
@@ -425,3 +425,83 @@ exports.deleteVideoNote = deleteVideoNote;
 //     res.status(500).json({ error: "Failed to fetch video category" });
 //   }
 // };
+// Update video note category (for drag and drop functionality)
+const updateVideoCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { videoUrl, newCategory } = req.body;
+        if (!videoUrl || !newCategory) {
+            return res.status(400).json({ error: "Missing video URL or new category" });
+        }
+        console.log(`🔄 Updating category for video ${videoUrl} to: ${newCategory}`);
+        // Update all notes for this video to the new category
+        const result = yield database_1.VideoNote.updateMany({ videoUrl: videoUrl }, { $set: { category: newCategory } });
+        if (result.modifiedCount === 0) {
+            return res.status(404).json({ error: "No notes found for this video" });
+        }
+        console.log(`✅ Updated ${result.modifiedCount} notes to category: ${newCategory}`);
+        res.json({
+            success: true,
+            modifiedCount: result.modifiedCount,
+            newCategory: newCategory
+        });
+    }
+    catch (error) {
+        console.error("❌ Error updating video category:", error);
+        res.status(500).json({ error: "Failed to update video category" });
+    }
+});
+exports.updateVideoCategory = updateVideoCategory;
+// Delete all notes for a specific video
+const deleteVideo = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { videoUrl } = req.params;
+        if (!videoUrl) {
+            return res.status(400).json({ error: "Missing video URL" });
+        }
+        const decodedVideoUrl = decodeURIComponent(videoUrl);
+        console.log(`🗑️ Deleting all notes for video: ${decodedVideoUrl}`);
+        // Delete all notes for this video
+        const result = yield database_1.VideoNote.deleteMany({ videoUrl: decodedVideoUrl });
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: "No notes found for this video" });
+        }
+        console.log(`✅ Deleted ${result.deletedCount} notes for video: ${decodedVideoUrl}`);
+        res.json({
+            success: true,
+            deletedCount: result.deletedCount,
+            message: "Video and all its notes deleted successfully"
+        });
+    }
+    catch (error) {
+        console.error("❌ Error deleting video:", error);
+        res.status(500).json({ error: "Failed to delete video" });
+    }
+});
+exports.deleteVideo = deleteVideo;
+// Rename video title for all notes
+const renameVideo = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { videoUrl, newTitle } = req.body;
+        if (!videoUrl || !newTitle) {
+            return res.status(400).json({ error: "Missing video URL or new title" });
+        }
+        console.log(`📝 Renaming video "${videoUrl}" to: ${newTitle}`);
+        // Update video title for all notes of this video
+        const result = yield database_1.VideoNote.updateMany({ videoUrl: videoUrl }, { $set: { videoTitle: newTitle } });
+        if (result.modifiedCount === 0) {
+            return res.status(404).json({ error: "No notes found for this video" });
+        }
+        console.log(`✅ Renamed video title for ${result.modifiedCount} notes`);
+        res.json({
+            success: true,
+            modifiedCount: result.modifiedCount,
+            newTitle: newTitle,
+            message: "Video renamed successfully"
+        });
+    }
+    catch (error) {
+        console.error("❌ Error renaming video:", error);
+        res.status(500).json({ error: "Failed to rename video" });
+    }
+});
+exports.renameVideo = renameVideo;

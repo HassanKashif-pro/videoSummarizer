@@ -50,84 +50,218 @@ async function checkAuthentication() {
     console.log("User is not authenticated");
     return false;
 }
-// Function to show authentication required message
-function showAuthenticationRequired() {
-    // Remove any existing auth notice
-    const existingNotice = document.getElementById("summify-auth-notice");
-    if (existingNotice)
-        existingNotice.remove();
-    const videoPlayer = document.querySelector(".html5-video-player");
-    if (!videoPlayer)
-        return;
-    const authNotice = document.createElement("div");
-    authNotice.id = "summify-auth-notice";
-    authNotice.style.cssText = `
-    position: absolute !important;
-    top: 10px !important;
-    right: 10px !important;
-    background: linear-gradient(135deg, #ff4444, #cc0000) !important;
-    color: white !important;
-    padding: 12px 16px !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+// Function to show authentication required overlay when user tries to access functionality
+function showAuthenticationOverlay() {
+    // Remove any existing overlay
+    const existingOverlay = document.getElementById("summify-auth-overlay");
+    if (existingOverlay)
+        existingOverlay.remove();
+    // Create full-screen overlay
+    const overlay = document.createElement("div");
+    overlay.id = "summify-auth-overlay";
+    overlay.style.cssText = `
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(8px) !important;
     z-index: 999999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
-    transition: all 0.3s ease !important;
-    border: 2px solid rgba(255, 255, 255, 0.2) !important;
-    backdrop-filter: blur(10px) !important;
-    max-width: 280px !important;
-    text-align: center !important;
   `;
-    authNotice.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <span style="font-size: 18px;">🔒</span>
-      <div>
-        <div style="font-weight: 600; margin-bottom: 4px;">Sign In Required</div>
-        <div style="font-size: 12px; opacity: 0.9;">Click to access Video Summarizer</div>
-      </div>
+    // Create modal content
+    const modal = document.createElement("div");
+    modal.style.cssText = `
+    background: white !important;
+    border-radius: 12px !important;
+    padding: 40px !important;
+    max-width: 400px !important;
+    width: 90% !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    text-align: center !important;
+    position: relative !important;
+  `;
+    modal.innerHTML = `
+    <div style="margin-bottom: 20px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+      <h2 style="color: #ff4444; margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">Sign In Required</h2>
+      <p style="color: #666; margin: 0 0 24px 0; font-size: 16px; line-height: 1.5;">
+        You need to sign in to access Video Summarizer features
+      </p>
+    </div>
+    
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="summify-signin-btn" style="
+        background: #ff4444;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex: 1;
+      ">
+        Sign In
+      </button>
+      
+      <button id="summify-cancel-btn" style="
+        background: transparent;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex: 1;
+      ">
+        Cancel
+      </button>
     </div>
   `;
-    authNotice.addEventListener("click", () => {
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    // Add event listeners
+    const signInBtn = overlay.querySelector("#summify-signin-btn");
+    const cancelBtn = overlay.querySelector("#summify-cancel-btn");
+    let authCheckInterval = null;
+    let signInWindow = null;
+    signInBtn?.addEventListener("click", () => {
         // Open the main app's sign-in page
-        window.open("http://localhost:5173/signin", "_blank", "width=400,height=600");
+        signInWindow = window.open("http://localhost:5173/signin", "_blank", "width=400,height=600");
+        // Start checking for authentication success
+        authCheckInterval = window.setInterval(async () => {
+            const isNowAuthenticated = await checkAuthentication();
+            // Check if sign-in window is closed or authentication is successful
+            if (signInWindow?.closed || isNowAuthenticated) {
+                if (authCheckInterval) {
+                    clearInterval(authCheckInterval);
+                    authCheckInterval = null;
+                }
+                if (isNowAuthenticated) {
+                    console.log("Authentication successful, closing overlay and restarting functionality");
+                    overlay.remove();
+                    // Update global authentication state
+                    isAuthenticated = true;
+                    // Remove existing watermark and restart with authenticated functionality
+                    const existingWatermark = document.getElementById("summify-watermark");
+                    if (existingWatermark)
+                        existingWatermark.remove();
+                    const existingUI = document.getElementById("floating_ui");
+                    if (existingUI)
+                        existingUI.remove();
+                    // Restart with full functionality
+                    startNormalFunctionality(true);
+                }
+            }
+        }, 1000); // Check every second
     });
-    authNotice.addEventListener("mouseenter", () => {
-        authNotice.style.transform = "scale(1.05)";
-        authNotice.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
+    signInBtn?.addEventListener("mouseenter", () => {
+        signInBtn.style.background = "#cc0000";
+        signInBtn.style.transform = "translateY(-1px)";
     });
-    authNotice.addEventListener("mouseleave", () => {
-        authNotice.style.transform = "scale(1)";
-        authNotice.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.3)";
+    signInBtn?.addEventListener("mouseleave", () => {
+        signInBtn.style.background = "#ff4444";
+        signInBtn.style.transform = "translateY(0)";
     });
-    videoPlayer.appendChild(authNotice);
-    console.log("Authentication notice shown");
+    const closeOverlay = () => {
+        if (authCheckInterval) {
+            clearInterval(authCheckInterval);
+            authCheckInterval = null;
+        }
+        if (signInWindow && !signInWindow.closed) {
+            signInWindow.close();
+        }
+        overlay.remove();
+    };
+    cancelBtn?.addEventListener("click", closeOverlay);
+    cancelBtn?.addEventListener("mouseenter", () => {
+        cancelBtn.style.background = "#f5f5f5";
+        cancelBtn.style.borderColor = "#999";
+    });
+    cancelBtn?.addEventListener("mouseleave", () => {
+        cancelBtn.style.background = "transparent";
+        cancelBtn.style.borderColor = "#ddd";
+    });
+    // Close overlay when clicking outside the modal
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) {
+            closeOverlay();
+        }
+    });
+    // Close overlay with Escape key
+    const handleEscape = (e) => {
+        if (e.key === "Escape") {
+            closeOverlay();
+            document.removeEventListener("keydown", handleEscape);
+        }
+    };
+    document.addEventListener("keydown", handleEscape);
+    // Listen for storage changes (in case authentication happens in another tab)
+    const handleStorageChange = async (e) => {
+        if (e.key === 'videoSummarizer_token' || e.key === 'videoSummarizer_user') {
+            const isNowAuthenticated = await checkAuthentication();
+            if (isNowAuthenticated) {
+                console.log("Authentication detected via storage change");
+                closeOverlay();
+                // Update global authentication state
+                isAuthenticated = true;
+                // Remove existing watermark and restart with authenticated functionality
+                const existingWatermark = document.getElementById("summify-watermark");
+                if (existingWatermark)
+                    existingWatermark.remove();
+                const existingUI = document.getElementById("floating_ui");
+                if (existingUI)
+                    existingUI.remove();
+                // Restart with full functionality
+                startNormalFunctionality(true);
+                window.removeEventListener("storage", handleStorageChange);
+            }
+        }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    // Clean up when overlay is removed
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.removedNodes.forEach((node) => {
+                if (node === overlay) {
+                    if (authCheckInterval) {
+                        clearInterval(authCheckInterval);
+                    }
+                    window.removeEventListener("storage", handleStorageChange);
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+    observer.observe(document.body, { childList: true });
 }
 // Initialize authentication check
 async function initializeExtension() {
     const isAuth = await checkAuthentication();
     if (!isAuth) {
-        // Show authentication required notice instead of normal functionality
-        const checkInterval = setInterval(() => {
-            const videoPlayer = document.querySelector(".html5-video-player");
-            if (videoPlayer && !document.getElementById("summify-auth-notice")) {
-                clearInterval(checkInterval);
-                showAuthenticationRequired();
-            }
-        }, 1000);
+        // For unauthenticated users, show watermark but no warning
+        // The warning will only appear when they try to use functionality
+        startNormalFunctionality(false); // Pass false to indicate unauthenticated
         // Listen for authentication updates
         window.addEventListener("message", async (event) => {
             if (event.data.type === "AUTH_SUCCESS" || event.data.type === "USER_SIGNED_IN") {
                 console.log("Authentication successful, reinitializing extension");
                 const authSuccess = await checkAuthentication();
                 if (authSuccess) {
-                    // Remove auth notice and start normal functionality
-                    const authNotice = document.getElementById("summify-auth-notice");
-                    if (authNotice)
-                        authNotice.remove();
-                    startNormalFunctionality();
+                    // Remove any existing overlay
+                    const overlay = document.getElementById("summify-auth-overlay");
+                    if (overlay)
+                        overlay.remove();
+                    // Restart with full functionality
+                    startNormalFunctionality(true);
                 }
             }
         });
@@ -135,19 +269,19 @@ async function initializeExtension() {
         setInterval(async () => {
             const authStatus = await checkAuthentication();
             if (authStatus && !document.getElementById("summify-watermark")) {
-                const authNotice = document.getElementById("summify-auth-notice");
-                if (authNotice)
-                    authNotice.remove();
-                startNormalFunctionality();
+                const overlay = document.getElementById("summify-auth-overlay");
+                if (overlay)
+                    overlay.remove();
+                startNormalFunctionality(true);
             }
         }, 5000); // Check every 5 seconds
-        return; // Stop here if not authenticated
+        return;
     }
     // User is authenticated, proceed with normal functionality
-    startNormalFunctionality();
+    startNormalFunctionality(true);
 }
 // Normal extension functionality (moved into a separate function)
-function startNormalFunctionality() {
+function startNormalFunctionality(authenticated) {
     console.log("Starting normal extension functionality for user:", currentUser?.name || currentUser?.username);
     // Add Material Icons CDN
     const link = document.createElement("link");
@@ -191,6 +325,12 @@ function startNormalFunctionality() {
             watermark.appendChild(textSpan);
             watermark.addEventListener("click", () => {
                 console.log("Watermark clicked!");
+                // Check authentication before showing UI
+                if (!authenticated || !isAuthenticated) {
+                    console.log("User not authenticated, showing auth overlay");
+                    showAuthenticationOverlay();
+                    return;
+                }
                 createFloatingUI();
             });
             videoPlayer.appendChild(watermark);
@@ -201,6 +341,12 @@ function startNormalFunctionality() {
 // Start the extension initialization
 initializeExtension();
 function createFloatingUI() {
+    // Double-check authentication before creating UI
+    if (!isAuthenticated) {
+        console.log("Authentication check failed, showing overlay");
+        showAuthenticationOverlay();
+        return;
+    }
     const existingUI = document.getElementById("floating_ui");
     if (existingUI)
         existingUI.remove();
@@ -216,7 +362,7 @@ function createFloatingUI() {
     headerBar.className = "header_bar";
     // Left side - Logo
     const logoLink = document.createElement("a");
-    logoLink.href = "https://localhost:5173";
+    logoLink.href = "https://localhost:5173/signin";
     logoLink.target = "_blank";
     logoLink.rel = "noopener noreferrer";
     const logoButton = document.createElement("div");

@@ -16,6 +16,8 @@ const {
   getVideoNote,
   deleteVideoNote,
   updateVideoCategory,
+  deleteVideo,
+  renameVideo,
 } = require("./controllers/videoController");
 
 // Add type for Cohere client
@@ -1524,6 +1526,10 @@ app.get("/api/videos/notes", getVideoNotes);
 app.get("/api/videos/notes/:noteId", getVideoNote);
 app.delete("/api/videos/notes/:noteId", deleteVideoNote);
 app.put("/api/videos/update-category", updateVideoCategory);
+
+// Add new routes for video operations
+app.delete("/api/videos/:videoUrl", deleteVideo);
+app.put("/api/videos/rename", renameVideo);
 
 // Add a new endpoint to test YouTube API with a specific video
 app.get("/test/youtube/:videoId", async (req: any, res: any) => {

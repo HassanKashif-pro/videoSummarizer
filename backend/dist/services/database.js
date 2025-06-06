@@ -36,7 +36,6 @@ const connectDB = () => __awaiter(void 0, void 0, void 0, function* () {
             maxPoolSize: 10, // Maximum number of connections in pool
             minPoolSize: 1, // Minimum number of connections in pool
             maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-            bufferMaxEntries: 0, // Disable mongoose buffering
             retryWrites: true,
             retryReads: true,
         };

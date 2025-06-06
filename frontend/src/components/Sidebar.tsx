@@ -51,6 +51,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [openVideoOptions, setOpenVideoOptions] = useState<string | null>(null);
   const [draggedVideo, setDraggedVideo] = useState<{url: string, title: string} | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
+  const [videoOptionsAnchor, setVideoOptionsAnchor] = useState<HTMLElement | null>(null);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameVideoData, setRenameVideoData] = useState<{url: string, title: string} | null>(null);
+  const [newVideoTitle, setNewVideoTitle] = useState("");
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportCategoryData, setExportCategoryData] = useState<{name: string, videos: any[]} | null>(null);
+  const [exportFormat, setExportFormat] = useState("pdf");
   const optionsMenuRef = useRef<HTMLDivElement | null>(null);
   const videoOptionsMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -92,6 +99,25 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleOptionClick = (option: string, notebookName: string) => {
     console.log(`${option} clicked for notebook: ${notebookName}`);
+    
+    if (option === "Edit") {
+      // TODO: Implement category rename functionality
+      showToast("Category rename coming soon!");
+    } else if (option === "Export") {
+      // Open export modal with category data
+      const categoryVideos = notebooks.find(nb => nb.name === notebookName)?.notes || [];
+      if (categoryVideos.length === 0) {
+        showToast("No videos to export in this category");
+        return;
+      }
+      
+      setExportCategoryData({ name: notebookName, videos: categoryVideos });
+      setShowExportModal(true);
+    } else if (option === "Delete") {
+      // TODO: Implement category deletion
+      showToast("Category deletion coming soon!");
+    }
+    
     setOpenOptionsNotebook(null);
   };
 
@@ -118,26 +144,281 @@ const Sidebar: React.FC<SidebarProps> = ({
     console.log(`${option} clicked for video: ${videoTitle}`);
     
     if (option === "Remove" || option === "Delete") {
-      // TODO: Implement remove video functionality
-      console.log("Remove video functionality to be implemented");
+      // Delete without confirmation
+      deleteVideo(videoUrl);
     } else if (option === "Copy Link" || option === "Share") {
       // Copy video URL to clipboard
       navigator.clipboard.writeText(videoUrl).then(() => {
-        console.log("Video URL copied to clipboard");
-        // TODO: Show toast notification that link was copied
+        // Show temporary success message
+        showToast("Video link copied to clipboard!");
+      }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = videoUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showToast("Video link copied to clipboard!");
       });
     } else if (option === "Open in New Tab" || option === "Export") {
       // Open video in new tab
-      window.open(videoUrl, '_blank');
+      window.open(videoUrl, '_blank', 'noopener,noreferrer');
     } else if (option === "Rename") {
-      // TODO: Implement rename functionality
-      console.log("Rename video functionality to be implemented");
-    } else if (option === "Move") {
-      // TODO: Implement move to category functionality (or keep drag & drop)
-      console.log("Move video functionality to be implemented");
+      // Open rename modal
+      setRenameVideoData({ url: videoUrl, title: videoTitle });
+      setNewVideoTitle(videoTitle);
+      setShowRenameModal(true);
     }
     
     setOpenVideoOptions(null);
+  };
+
+  // Helper function to show temporary toast messages
+  const showToast = (message: string) => {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--yt-red);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 10000;
+      font-family: inherit;
+      font-size: 0.9em;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (document.body.contains(toast)) {
+        document.body.removeChild(toast);
+      }
+    }, 3000);
+  };
+
+  // Function to delete a video
+  const deleteVideo = async (videoUrl: string) => {
+    try {
+      const deleteResponse = await axios.delete(`http://localhost:3001/api/videos/${encodeURIComponent(videoUrl)}`);
+
+      if (deleteResponse.data.success) {
+        showToast("Video deleted successfully!");
+        if (onRefreshNotes) {
+          onRefreshNotes();
+        }
+      } else {
+        showToast("Failed to delete video");
+      }
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      showToast("Error deleting video");
+    }
+  };
+
+  // Function to handle rename modal
+  const handleRenameSubmit = async () => {
+    if (!renameVideoData || !newVideoTitle.trim() || newVideoTitle === renameVideoData.title) {
+      return;
+    }
+
+    try {
+      const renameResponse = await axios.put(`http://localhost:3001/api/videos/rename`, {
+        videoUrl: renameVideoData.url,
+        newTitle: newVideoTitle.trim()
+      });
+
+      if (renameResponse.data.success) {
+        showToast("Video renamed successfully!");
+        if (onRefreshNotes) {
+          onRefreshNotes();
+        }
+        setShowRenameModal(false);
+        setRenameVideoData(null);
+        setNewVideoTitle("");
+      } else {
+        showToast("Failed to rename video");
+      }
+    } catch (error) {
+      console.error("Error renaming video:", error);
+      showToast("Error renaming video");
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setShowRenameModal(false);
+    setRenameVideoData(null);
+    setNewVideoTitle("");
+  };
+
+  // Export modal handlers
+  const handleExportCancel = () => {
+    setShowExportModal(false);
+    setExportCategoryData(null);
+    setExportFormat("pdf");
+  };
+
+  const handleExportSubmit = () => {
+    if (!exportCategoryData) return;
+
+    const { name, videos } = exportCategoryData;
+
+    try {
+      if (exportFormat === "pdf") {
+        exportAsPDF(name, videos);
+      } else if (exportFormat === "markdown-local") {
+        exportAsMarkdown(name, videos, true);
+      } else if (exportFormat === "markdown-cloud") {
+        exportAsMarkdown(name, videos, false);
+      } else if (exportFormat === "json") {
+        exportAsJSON(name, videos);
+      } else if (exportFormat === "txt") {
+        exportAsText(name, videos);
+      }
+
+      showToast(`Exported ${videos.length} videos from ${name}`);
+      handleExportCancel();
+    } catch (error) {
+      console.error("Export error:", error);
+      showToast("Failed to export data");
+    }
+  };
+
+  // Export format functions
+  const exportAsPDF = (categoryName: string, videos: any[]) => {
+    // For now, create a simple text file (PDF generation would require a library like jsPDF)
+    const content = `# ${categoryName} - Video Notes\n\n` +
+      videos.map(video => 
+        `## ${video.videoTitle}\n` +
+        `**URL:** ${video.videoUrl}\n` +
+        `**Category:** ${video.category}\n` +
+        `**Timestamp:** ${video.timestamp}\n` +
+        `**Content:** ${video.content}\n` +
+        `**Created:** ${new Date(video.createdAt).toLocaleDateString()}\n\n---\n\n`
+      ).join('');
+
+    downloadFile(content, `${categoryName}_notes.txt`, 'text/plain');
+    showToast("PDF export coming soon! Downloaded as text file for now.");
+  };
+
+  const exportAsMarkdown = (categoryName: string, videos: any[], localImages: boolean) => {
+    const imageType = localImages ? 'local' : 'cloud';
+    const content = `# ${categoryName} - Video Notes\n\n` +
+      videos.map(video => 
+        `## [${video.videoTitle}](${video.videoUrl})\n\n` +
+        `- **Category:** ${video.category}\n` +
+        `- **Timestamp:** ${video.timestamp}\n` +
+        `- **Created:** ${new Date(video.createdAt).toLocaleDateString()}\n\n` +
+        `### Content\n${video.content}\n\n---\n\n`
+      ).join('');
+
+    downloadFile(content, `${categoryName}_notes_${imageType}.md`, 'text/markdown');
+  };
+
+  const exportAsJSON = (categoryName: string, videos: any[]) => {
+    const data = {
+      category: categoryName,
+      exportDate: new Date().toISOString(),
+      videoCount: videos.length,
+      videos: videos.map(video => ({
+        title: video.videoTitle,
+        url: video.videoUrl,
+        category: video.category,
+        timestamp: video.timestamp,
+        content: video.content,
+        contentType: video.contentType,
+        createdAt: video.createdAt,
+        isPinned: video.isPinned
+      }))
+    };
+
+    downloadFile(JSON.stringify(data, null, 2), `${categoryName}_notes.json`, 'application/json');
+  };
+
+  const exportAsText = (categoryName: string, videos: any[]) => {
+    const content = `${categoryName.toUpperCase()} - VIDEO NOTES\n` +
+      `=${'='.repeat(categoryName.length + 15)}\n\n` +
+      videos.map((video, index) => 
+        `${index + 1}. ${video.videoTitle}\n` +
+        `   URL: ${video.videoUrl}\n` +
+        `   Category: ${video.category}\n` +
+        `   Timestamp: ${video.timestamp}\n` +
+        `   Content: ${video.content}\n` +
+        `   Created: ${new Date(video.createdAt).toLocaleDateString()}\n\n`
+      ).join('');
+
+    downloadFile(content, `${categoryName}_notes.txt`, 'text/plain');
+  };
+
+  // Helper function to download files
+  const downloadFile = (content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Function to show move dialog
+  const showMoveDialog = (videoUrl: string, videoTitle: string) => {
+    const categories = notebooks.map(nb => nb.name);
+    const currentCategory = notebooks.find(notebook => 
+      notebook.notes.some(note => note.videoUrl === videoUrl)
+    )?.name;
+
+    const availableCategories = categories.filter(cat => cat !== currentCategory);
+    
+    if (availableCategories.length === 0) {
+      showToast("No other categories available");
+      return;
+    }
+
+    // Create a simple selection dialog
+    const categoryList = availableCategories.map((cat, index) => `${index + 1}. ${cat}`).join('\n');
+    const selection = window.prompt(
+      `Move "${videoTitle}" to which category?\n\n${categoryList}\n\nEnter the number (1-${availableCategories.length}):`
+    );
+
+    if (selection) {
+      const index = parseInt(selection) - 1;
+      if (index >= 0 && index < availableCategories.length) {
+        moveVideo(videoUrl, availableCategories[index]);
+      } else {
+        showToast("Invalid selection");
+      }
+    }
+  };
+
+  // Function to move a video to another category
+  const moveVideo = async (videoUrl: string, targetCategory: string) => {
+    try {
+      const response = await axios.put("http://localhost:3001/api/videos/update-category", {
+        videoUrl,
+        newCategory: targetCategory
+      });
+
+      if (response.data.success) {
+        showToast(`Video moved to ${targetCategory}!`);
+        if (onRefreshNotes) {
+          onRefreshNotes();
+        }
+      } else {
+        showToast("Failed to move video");
+      }
+    } catch (error) {
+      console.error("Error moving video:", error);
+      showToast("Error moving video");
+    }
   };
 
   // Drag and Drop Functions
@@ -374,6 +655,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <i
                           className="fas fa-ellipsis-v options-icon"
                           onClick={(e) => handleOptionsClick(e, notebook.name)}
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "1em",
+                            color: "var(--yt-text-secondary)",
+                            padding: "6px",
+                            borderRadius: "50%",
+                            transition: "all 0.2s ease",
+                            opacity: "0.7"
+                          }}
                         ></i>
                         {openOptionsNotebook === notebook.name && (
                           <div
@@ -383,11 +673,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOptionClick("Rename", notebook.name);
+                                handleOptionClick("Edit", notebook.name);
                               }}
                             >
                               <i className="fas fa-edit"></i>
-                              Rename
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOptionClick("Export", notebook.name);
+                              }}
+                            >
+                              <i className="fas fa-external-link-alt"></i>
+                              Export
                             </button>
                             <button
                               onClick={(e) => {
@@ -499,15 +798,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleVideoOptionClick("Move", videoUrl, notesForVideo[0].videoTitle);
-                                    }}
-                                  >
-                                    <i className="fas fa-arrows-alt"></i>
-                                    Move
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
                                       handleVideoOptionClick("Open in New Tab", videoUrl, notesForVideo[0].videoTitle);
                                     }}
                                   >
@@ -560,6 +850,402 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Rename Modal */}
+      {showRenameModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            minWidth: '400px',
+            maxWidth: '500px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.2em',
+                fontWeight: '600',
+                color: 'var(--yt-text-primary)'
+              }}>
+                Rename video
+              </h3>
+              <button
+                onClick={handleRenameCancel}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5em',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '4px',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{
+              marginBottom: '20px'
+            }}>
+              <input
+                type="text"
+                value={newVideoTitle}
+                onChange={(e) => setNewVideoTitle(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1em',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  transition: 'border-color 0.2s ease',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--yt-red)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleRenameSubmit();
+                  } else if (e.key === 'Escape') {
+                    handleRenameCancel();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px'
+            }}>
+              <button
+                onClick={handleRenameCancel}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  fontFamily: 'inherit',
+                  color: '#666',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameSubmit}
+                disabled={!newVideoTitle.trim() || newVideoTitle === renameVideoData?.title}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  backgroundColor: newVideoTitle.trim() && newVideoTitle !== renameVideoData?.title ? 'var(--yt-red)' : '#ccc',
+                  color: 'white',
+                  cursor: newVideoTitle.trim() && newVideoTitle !== renameVideoData?.title ? 'pointer' : 'not-allowed',
+                  fontSize: '0.9em',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = 'var(--yt-red-hover)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = 'var(--yt-red)';
+                  }
+                }}
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && exportCategoryData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            minWidth: '400px',
+            maxWidth: '500px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.2em',
+                fontWeight: '600',
+                color: 'var(--yt-text-primary)'
+              }}>
+                Export notes from "{exportCategoryData.name}"
+              </h3>
+              <button
+                onClick={handleExportCancel}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5em',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '4px',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{
+              marginBottom: '20px'
+            }}>
+              <p style={{
+                color: '#666',
+                fontSize: '0.9em',
+                marginBottom: '16px',
+                margin: '0 0 16px 0'
+              }}>
+                How would you like to export your notes?
+              </p>
+              
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="pdf"
+                    checked={exportFormat === "pdf"}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{
+                      marginRight: '8px',
+                      transform: 'scale(1.2)'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.9em', color: '#333' }}>PDF file</span>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="markdown-local"
+                    checked={exportFormat === "markdown-local"}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{
+                      marginRight: '8px',
+                      transform: 'scale(1.2)'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.9em', color: '#333' }}>Markdown file (local images)</span>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="markdown-cloud"
+                    checked={exportFormat === "markdown-cloud"}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{
+                      marginRight: '8px',
+                      transform: 'scale(1.2)'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.9em', color: '#333' }}>Markdown file (cloud images)</span>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="json"
+                    checked={exportFormat === "json"}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{
+                      marginRight: '8px',
+                      transform: 'scale(1.2)'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.9em', color: '#333' }}>JSON file (structured data)</span>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="txt"
+                    checked={exportFormat === "txt"}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{
+                      marginRight: '8px',
+                      transform: 'scale(1.2)'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.9em', color: '#333' }}>Text file (simple format)</span>
+                </label>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px'
+            }}>
+              <button
+                onClick={handleExportCancel}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  fontFamily: 'inherit',
+                  color: '#666',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExportSubmit}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--yt-red)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--yt-red-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--yt-red)'}
+              >
+                Export notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
