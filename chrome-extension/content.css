@@ -198,6 +198,7 @@
   }
 }
 
+
 .material-symbols-outlined.icon.summarize:hover {
   background-color: #f0f0f0;
   color: #f61818;
@@ -730,4 +731,4 @@
   to {
     opacity: 0;
   }
-}
+} 

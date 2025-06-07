@@ -1,55 +1,100 @@
 "use strict";
 // content.ts
 console.log("Injected into YouTube!");
-// Authentication check - prevent any functionality if not signed in
+// 🚀 FAST AUTHENTICATION SYSTEM - Optimized for speed and efficiency
 let isAuthenticated = false;
 let currentUser = null;
-// Function to check authentication status
-async function checkAuthentication() {
-    try {
-        // Get localStorage auth data first
-        const savedAuth = localStorage.getItem('videoSummarizer_token');
-        const savedUser = localStorage.getItem('videoSummarizer_user');
-        if (savedAuth && savedUser) {
-            try {
-                const userData = JSON.parse(savedUser);
-                // Check if user is authenticated by sending data to backend
-                const response = await fetch("http://localhost:3001/api/auth/status", {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "x-auth-token": savedAuth,
-                        "x-user-data": encodeURIComponent(savedUser)
-                    }
-                });
-                if (response.ok) {
-                    const authData = await response.json();
-                    if (authData.authenticated && authData.user) {
-                        isAuthenticated = true;
-                        currentUser = authData.user;
-                        console.log("User is authenticated:", currentUser);
-                        return true;
-                    }
-                }
-                // If backend validation fails, still use localStorage data
-                currentUser = userData;
-                isAuthenticated = true;
-                console.log("User authenticated via localStorage:", currentUser);
-                return true;
-            }
-            catch (e) {
-                console.log("Invalid localStorage auth data");
-            }
+let authCache = null;
+// Configuration
+const AUTH_CACHE_DURATION = 300000; // 5 minutes cache
+const AUTH_TIMEOUT = 3000; // 3 seconds timeout (reduced from 8)
+const GUEST_MODE_ENABLED = true; // Allow guest access
+const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds between checks (reduced from 3)
+let lastAuthCheck = 0;
+// 🏎️ ULTRA FAST: Try local storage first, then backend if needed
+const quickAuthCheck = () => {
+    // Try localStorage first (instant)
+    const token = localStorage.getItem('videoSummarizer_token');
+    const userStr = localStorage.getItem('videoSummarizer_user');
+    if (token && userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            console.log('⚡ Quick auth success from localStorage:', user.name || user.username);
+            return { authenticated: true, user };
+        }
+        catch (e) {
+            console.log('⚠️ Invalid localStorage data');
         }
     }
-    catch (error) {
-        console.log("Authentication check failed:", error);
+    // Check cache next (also instant)
+    if (authCache && (Date.now() - authCache.timestamp) < AUTH_CACHE_DURATION) {
+        console.log('⚡ Quick auth from cache:', authCache.authenticated ? 'authenticated' : 'not authenticated');
+        return { authenticated: authCache.authenticated, user: authCache.user };
     }
-    isAuthenticated = false;
-    currentUser = null;
-    console.log("User is not authenticated");
-    return false;
-}
+    console.log('🔍 No quick auth available');
+    return { authenticated: false };
+};
+// 🌐 BACKGROUND: Backend verification (non-blocking)
+const verifyAuthInBackground = async () => {
+    const now = Date.now();
+    // Rate limiting
+    if (now - lastAuthCheck < AUTH_CHECK_COOLDOWN) {
+        console.log('⏸️ Auth check rate limited');
+        return authCache || { authenticated: false };
+    }
+    lastAuthCheck = now;
+    console.log('🔍 Background auth verification...');
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT);
+        const response = await fetch('http://localhost:3001/api/auth/check-namespace', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const data = await response.json();
+        const result = {
+            authenticated: data.success && data.authenticated && data.user,
+            user: data.user
+        };
+        // Update cache
+        authCache = { ...result, timestamp: now };
+        console.log(`✅ Background auth result: ${result.authenticated ? 'authenticated' : 'not authenticated'}`);
+        return result;
+    }
+    catch (error) {
+        console.log('⚠️ Background auth failed (non-blocking):', error.name);
+        // Return cached result or assume not authenticated
+        const fallback = authCache || { authenticated: false };
+        return fallback;
+    }
+};
+// 🎯 SMART: Get authentication status with instant response and background verification
+const getAuthStatus = async (background = true) => {
+    // Always try quick check first
+    const quickResult = quickAuthCheck();
+    if (quickResult.authenticated) {
+        // If quick check says authenticated, trust it and optionally verify in background
+        isAuthenticated = true;
+        currentUser = quickResult.user;
+        if (background) {
+            // Verify in background (non-blocking)
+            verifyAuthInBackground().then(backendResult => {
+                if (!backendResult.authenticated && quickResult.authenticated) {
+                    console.log('🔄 Background check failed, user may have been signed out elsewhere');
+                    // Could trigger a UI update here if needed
+                }
+            });
+        }
+        return quickResult;
+    }
+    // If quick check failed, do background check
+    const backendResult = await verifyAuthInBackground();
+    isAuthenticated = backendResult.authenticated;
+    currentUser = backendResult.user;
+    return backendResult;
+};
 // Function to show authentication required overlay when user tries to access functionality
 function showAuthenticationOverlay() {
     // Remove any existing overlay
@@ -79,7 +124,7 @@ function showAuthenticationOverlay() {
     background: white !important;
     border-radius: 12px !important;
     padding: 40px !important;
-    max-width: 400px !important;
+    max-width: 450px !important;
     width: 90% !important;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
     text-align: center !important;
@@ -92,9 +137,9 @@ function showAuthenticationOverlay() {
       <p style="color: #666; margin: 0 0 24px 0; font-size: 16px; line-height: 1.5;">
         You need to sign in to access Video Summarizer features
       </p>
-    </div>
+      </div>
     
-    <div style="display: flex; gap: 12px; justify-content: center;">
+    <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 16px;">
       <button id="summify-signin-btn" style="
         background: #ff4444;
         color: white;
@@ -125,44 +170,68 @@ function showAuthenticationOverlay() {
         Cancel
       </button>
     </div>
+    
+    ${GUEST_MODE_ENABLED ? `
+    <div style="border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px;">
+      <button id="summify-guest-btn" style="
+        background: transparent;
+        color: #888;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: underline;
+      ">
+        Continue as Guest (limited features)
+      </button>
+    </div>
+    ` : ''}
   `;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     // Add event listeners
     const signInBtn = overlay.querySelector("#summify-signin-btn");
     const cancelBtn = overlay.querySelector("#summify-cancel-btn");
+    const guestBtn = overlay.querySelector("#summify-guest-btn");
     let authCheckInterval = null;
     let signInWindow = null;
     signInBtn?.addEventListener("click", () => {
         // Open the main app's sign-in page
         signInWindow = window.open("http://localhost:5173/signin", "_blank", "width=400,height=600");
-        // Start checking for authentication success
+        // Start checking for authentication success (but less aggressively)
         authCheckInterval = window.setInterval(async () => {
-            const isNowAuthenticated = await checkAuthentication();
+            const authResult = await getAuthStatus(false); // Don't do background check during sign-in
             // Check if sign-in window is closed or authentication is successful
-            if (signInWindow?.closed || isNowAuthenticated) {
+            if (signInWindow?.closed || authResult.authenticated) {
                 if (authCheckInterval) {
                     clearInterval(authCheckInterval);
                     authCheckInterval = null;
                 }
-                if (isNowAuthenticated) {
-                    console.log("Authentication successful, closing overlay and restarting functionality");
+                if (authResult.authenticated) {
+                    console.log("✅ Authentication successful, showing UI");
                     overlay.remove();
-                    // Update global authentication state
-                    isAuthenticated = true;
-                    // Remove existing watermark and restart with authenticated functionality
+                    // Remove existing elements and show UI
                     const existingWatermark = document.getElementById("summify-watermark");
                     if (existingWatermark)
                         existingWatermark.remove();
                     const existingUI = document.getElementById("floating_ui");
                     if (existingUI)
                         existingUI.remove();
-                    // Restart with full functionality
-                    startNormalFunctionality(true);
+                    createFloatingUI();
                 }
             }
-        }, 1000); // Check every second
+        }, 2000); // Check every 2 seconds instead of every 1 second
     });
+    // Guest mode button
+    if (guestBtn && GUEST_MODE_ENABLED) {
+        guestBtn.addEventListener("click", () => {
+            console.log("🎭 Guest mode activated");
+            overlay.remove();
+            createFloatingUI(true); // true = guest mode
+        });
+    }
     signInBtn?.addEventListener("mouseenter", () => {
         signInBtn.style.background = "#cc0000";
         signInBtn.style.transform = "translateY(-1px)";
@@ -182,21 +251,7 @@ function showAuthenticationOverlay() {
         overlay.remove();
     };
     cancelBtn?.addEventListener("click", closeOverlay);
-    cancelBtn?.addEventListener("mouseenter", () => {
-        cancelBtn.style.background = "#f5f5f5";
-        cancelBtn.style.borderColor = "#999";
-    });
-    cancelBtn?.addEventListener("mouseleave", () => {
-        cancelBtn.style.background = "transparent";
-        cancelBtn.style.borderColor = "#ddd";
-    });
-    // Close overlay when clicking outside the modal
-    overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-            closeOverlay();
-        }
-    });
-    // Close overlay with Escape key
+    // Close on escape key
     const handleEscape = (e) => {
         if (e.key === "Escape") {
             closeOverlay();
@@ -204,104 +259,102 @@ function showAuthenticationOverlay() {
         }
     };
     document.addEventListener("keydown", handleEscape);
-    // Listen for storage changes (in case authentication happens in another tab)
+    // Listen for localStorage changes (cross-tab authentication)
     const handleStorageChange = async (e) => {
-        if (e.key === 'videoSummarizer_token' || e.key === 'videoSummarizer_user') {
-            const isNowAuthenticated = await checkAuthentication();
-            if (isNowAuthenticated) {
-                console.log("Authentication detected via storage change");
+        if ((e.key === 'videoSummarizer_token' || e.key === 'videoSummarizer_user') && e.newValue) {
+            console.log("🔄 Authentication detected via localStorage change");
+            const authResult = await getAuthStatus();
+            if (authResult.authenticated) {
+                console.log("✅ Cross-tab authentication successful");
                 closeOverlay();
-                // Update global authentication state
-                isAuthenticated = true;
-                // Remove existing watermark and restart with authenticated functionality
+                // Remove existing elements and show UI
                 const existingWatermark = document.getElementById("summify-watermark");
                 if (existingWatermark)
                     existingWatermark.remove();
                 const existingUI = document.getElementById("floating_ui");
                 if (existingUI)
                     existingUI.remove();
-                // Restart with full functionality
-                startNormalFunctionality(true);
-                window.removeEventListener("storage", handleStorageChange);
+                createFloatingUI();
             }
         }
     };
     window.addEventListener("storage", handleStorageChange);
-    // Clean up when overlay is removed
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.removedNodes.forEach((node) => {
-                if (node === overlay) {
-                    if (authCheckInterval) {
-                        clearInterval(authCheckInterval);
-                    }
-                    window.removeEventListener("storage", handleStorageChange);
-                    observer.disconnect();
-                }
-            });
-        });
+    // Cleanup listener when overlay is removed
+    const observer = new MutationObserver(() => {
+        if (!document.contains(overlay)) {
+            window.removeEventListener("storage", handleStorageChange);
+            document.removeEventListener("keydown", handleEscape);
+            observer.disconnect();
+        }
     });
     observer.observe(document.body, { childList: true });
 }
-// Initialize authentication check
+// 🚀 OPTIMIZED: Fast initialization with instant watermark
 async function initializeExtension() {
-    const isAuth = await checkAuthentication();
-    if (!isAuth) {
-        // For unauthenticated users, show watermark but no warning
-        // The warning will only appear when they try to use functionality
-        startNormalFunctionality(false); // Pass false to indicate unauthenticated
-        // Listen for authentication updates
-        window.addEventListener("message", async (event) => {
+    console.log("🚀 Starting fast extension initialization...");
+    // Skip all the communication testing and complex logic
+    // Just get auth status quickly and start functionality
+    const authResult = await getAuthStatus();
+    console.log("🚀 Extension initialization - Authenticated:", authResult.authenticated);
+    // Always start with watermark immediately - no delays
+    startNormalFunctionality(authResult.authenticated);
+    // Simple message handling for auth updates
+    window.addEventListener("message", async (event) => {
+        if (event.data.source === 'main_app') {
             if (event.data.type === "AUTH_SUCCESS" || event.data.type === "USER_SIGNED_IN") {
-                console.log("Authentication successful, reinitializing extension");
-                const authSuccess = await checkAuthentication();
-                if (authSuccess) {
-                    // Remove any existing overlay
+                console.log("✅ Auth success from main app");
+                const authSuccess = await getAuthStatus();
+                if (authSuccess.authenticated) {
+                    // Clear auth cache to force refresh
+                    authCache = null;
+                    // Remove overlay and restart with auth
                     const overlay = document.getElementById("summify-auth-overlay");
                     if (overlay)
                         overlay.remove();
-                    // Restart with full functionality
+                    const existingWatermark = document.getElementById("summify-watermark");
+                    if (existingWatermark)
+                        existingWatermark.remove();
+                    const existingUI = document.getElementById("floating_ui");
+                    if (existingUI)
+                        existingUI.remove();
                     startNormalFunctionality(true);
                 }
             }
-        });
-        // Check periodically for authentication changes
-        setInterval(async () => {
-            const authStatus = await checkAuthentication();
-            if (authStatus && !document.getElementById("summify-watermark")) {
-                const overlay = document.getElementById("summify-auth-overlay");
-                if (overlay)
-                    overlay.remove();
-                startNormalFunctionality(true);
+            else if (event.data.type === "AUTH_SIGNOUT") {
+                console.log("🚪 User signed out");
+                isAuthenticated = false;
+                currentUser = null;
+                authCache = null;
+                const existingUI = document.getElementById("floating_ui");
+                if (existingUI)
+                    existingUI.remove();
+                const existingWatermark = document.getElementById("summify-watermark");
+                if (existingWatermark)
+                    existingWatermark.remove();
+                startNormalFunctionality(false);
             }
-        }, 5000); // Check every 5 seconds
-        return;
-    }
-    // User is authenticated, proceed with normal functionality
-    startNormalFunctionality(true);
+        }
+    });
+    console.log("✅ Fast initialization complete");
 }
-// Normal extension functionality (moved into a separate function)
+// 🎯 STREAMLINED: Normal extension functionality
 function startNormalFunctionality(authenticated) {
-    console.log("Starting normal extension functionality for user:", currentUser?.name || currentUser?.username);
+    console.log("🎯 Starting normal functionality, authenticated:", authenticated);
     // Add Material Icons CDN
     const link = document.createElement("link");
-    link.href =
-        "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200";
+    link.href = "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200";
     link.rel = "stylesheet";
     document.head.appendChild(link);
-    const checkInterval = setInterval(() => {
+    // Add watermark immediately - no delays
+    const addWatermark = () => {
         const videoPlayer = document.querySelector(".html5-video-player");
         if (videoPlayer && !document.getElementById("summify-watermark")) {
-            clearInterval(checkInterval);
             const watermark = document.createElement("div");
             watermark.id = "summify-watermark";
             const logoImage = document.createElement("img");
             logoImage.src = chrome.runtime.getURL("icons/image.png");
             logoImage.alt = "Summify Logo";
-            // Add error handling for watermark logo loading
             logoImage.onerror = () => {
-                console.log("Failed to load watermark logo image, using fallback");
-                // Create a simple text fallback if image fails to load
                 const fallbackLogo = document.createElement("div");
                 fallbackLogo.className = "watermark-logo-fallback";
                 fallbackLogo.textContent = "📝";
@@ -316,37 +369,46 @@ function startNormalFunctionality(authenticated) {
         `;
                 logoImage.parentNode?.replaceChild(fallbackLogo, logoImage);
             };
-            logoImage.onload = () => {
-                console.log("Watermark logo loaded successfully");
-            };
             const textSpan = document.createElement("span");
             textSpan.textContent = " Open Summify →";
             watermark.appendChild(logoImage);
             watermark.appendChild(textSpan);
-            watermark.addEventListener("click", () => {
-                console.log("Watermark clicked!");
-                // Check authentication before showing UI
-                if (!authenticated || !isAuthenticated) {
-                    console.log("User not authenticated, showing auth overlay");
-                    showAuthenticationOverlay();
-                    return;
+            // 🎯 INSTANT: Click handler with instant response
+            watermark.addEventListener("click", async () => {
+                console.log("🖱️ Watermark clicked!");
+                // Get auth status quickly
+                const authResult = await getAuthStatus();
+                console.log("🔐 Auth check result:", authResult.authenticated);
+                if (authResult.authenticated) {
+                    console.log("✅ User authenticated - showing floating UI immediately");
+                    createFloatingUI();
                 }
-                createFloatingUI();
+                else {
+                    console.log("❓ User not authenticated - showing options");
+                    showAuthenticationOverlay();
+                }
             });
             videoPlayer.appendChild(watermark);
-            console.log("Watermark added!");
+            console.log("✅ Watermark added instantly!");
+            return true;
         }
-    }, 1000);
-}
-// Start the extension initialization
-initializeExtension();
-function createFloatingUI() {
-    // Double-check authentication before creating UI
-    if (!isAuthenticated) {
-        console.log("Authentication check failed, showing overlay");
-        showAuthenticationOverlay();
-        return;
+        return false;
+    };
+    // Try to add watermark immediately, then with intervals if needed
+    if (!addWatermark()) {
+        const checkInterval = setInterval(() => {
+            if (addWatermark()) {
+                clearInterval(checkInterval);
+            }
+        }, 500); // Check every 500ms instead of 1000ms
+        // Stop trying after 10 seconds
+        setTimeout(() => clearInterval(checkInterval), 10000);
     }
+}
+// Start the extension initialization immediately
+initializeExtension();
+function createFloatingUI(guestMode = false) {
+    console.log(`🚀 Creating floating UI ${guestMode ? '(Guest Mode)' : '(Authenticated)'}`);
     const existingUI = document.getElementById("floating_ui");
     if (existingUI)
         existingUI.remove();
@@ -891,41 +953,6 @@ function createFloatingUI() {
             // Final trim
             .trim());
     }
-    // Function to get video category
-    // async function getVideoCategory(videoId: string): Promise<string> {
-    //   try {
-    //     const response = await fetch(
-    //       `http://localhost:3001/api/videos/category/${videoId}`
-    //     );
-    //     const data = await response.json();
-    //     if (data.error) {
-    //       console.error("Error getting video category:", data.error);
-    //       return "Uncategorized";
-    //     }
-    //     // Map YouTube categories to our categories
-    //     const category = data.category;
-    //     if (category.includes("Science") || category.includes("Technology")) {
-    //       return "Science & Technology";
-    //     } else if (
-    //       category.includes("Education") ||
-    //       category.includes("Learning")
-    //     ) {
-    //       return "Education";
-    //     } else if (category.includes("Gaming") || category.includes("Game")) {
-    //       return "Gaming";
-    //     } else if (
-    //       category.includes("Entertainment") ||
-    //       category.includes("Music") ||
-    //       category.includes("Comedy")
-    //     ) {
-    //       return "Entertainment";
-    //     }
-    //     return "Uncategorized";
-    //   } catch (error) {
-    //     console.error("Error fetching video category:", error);
-    //     return "Uncategorized";
-    //   }
-    // }
     async function saveNoteToBackend(content, timestamp, contentType) {
         try {
             const videoId = new URLSearchParams(window.location.search).get("v");

@@ -36,190 +36,103 @@ class AuthService {
   private storageKey = 'videoSummarizer_user';
   private tokenKey = 'videoSummarizer_token';
 
-  // Sign up new user
+  // 🆕 CLEAN: Sign up using backend only (with timeout)
   async signUp(userData: SignUpData): Promise<AuthResponse> {
     try {
-      // Check if username already exists locally
-      if (this.checkUsernameExists(userData.username)) {
+      console.log('🆕 Creating user in backend namespace...');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${this.baseUrl}/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      
+      if (result.success) {
+        // Save user data and session to localStorage for frontend state
+        this.saveUserToLocal(result.user, result.sessionId);
+        localStorage.setItem('videoSummarizer_sessionId', result.sessionId);
+        console.log(`✅ User created in namespace: ${result.user.username} (Session: ${result.sessionId})`);
+        return result;
+      } else {
+        return result;
+      }
+      
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('❌ Signup timeout - request took too long');
         return {
           success: false,
-          message: 'Username already exists. Please choose a different username.'
+          message: 'Sign up timed out. Please try again.'
         };
       }
-
-      // Check if email already exists locally
-      if (this.checkEmailExists(userData.email)) {
-        return {
-          success: false,
-          message: 'Email already registered. Please use a different email or sign in.'
-        };
-      }
-
-      // Try backend first, fallback to local storage
-      try {
-        const response = await fetch(`${this.baseUrl}/signup`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userData),
-        });
-
-        if (!response.ok) {
-          throw new Error('Backend not available');
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          this.saveUserToLocal(result.user, result.token);
-          return result;
-        } else {
-          return result;
-        }
-      } catch (error) {
-        // Fallback to local storage
-        console.log('Backend not available, using local storage');
-        return this.signUpLocal(userData);
-      }
-    } catch (error) {
-      console.error('Sign up error:', error);
+      
+      console.error('❌ Backend signup error:', error);
       return {
         success: false,
-        message: 'An error occurred during sign up. Please try again.'
+        message: 'Backend connection failed. Please check if the server is running.'
       };
     }
   }
 
-  // Sign in existing user
+  // 🆕 CLEAN: Sign in using backend only (with timeout)
   async signIn(credentials: SignInData): Promise<AuthResponse> {
     try {
-      // Try backend first, fallback to local storage
-      try {
-        const response = await fetch(`${this.baseUrl}/signin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(credentials),
-        });
+      console.log('🆕 Signing in to backend namespace...');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${this.baseUrl}/signin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+        signal: controller.signal
+      });
 
-        if (!response.ok) {
-          throw new Error('Backend not available');
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          this.saveUserToLocal(result.user, result.token);
-          // Update last login
-          result.user.lastLoginAt = new Date().toISOString();
-          this.saveUserToLocal(result.user, result.token);
-          return result;
-        } else {
-          return result;
-        }
-      } catch (error) {
-        // Fallback to local storage
-        console.log('Backend not available, using local storage');
-        return this.signInLocal(credentials);
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      
+      if (result.success) {
+        // Save user data and session to localStorage for frontend state
+        this.saveUserToLocal(result.user, result.sessionId);
+        localStorage.setItem('videoSummarizer_sessionId', result.sessionId);
+        console.log(`✅ User signed in to namespace: ${result.user.username} (Session: ${result.sessionId})`);
+        return result;
+      } else {
+        return result;
       }
-    } catch (error) {
-      console.error('Sign in error:', error);
-      return {
-        success: false,
-        message: 'An error occurred during sign in. Please try again.'
-      };
-    }
-  }
-
-  // Local storage sign up
-  private signUpLocal(userData: SignUpData): AuthResponse {
-    const users = this.getAllUsersFromLocal();
-    
-    // Check if user already exists
-    const existingUser = users.find(u => u.email === userData.email || u.username === userData.username);
-    if (existingUser) {
-      return {
-        success: false,
-        message: existingUser.email === userData.email ? 'Email already registered' : 'Username already taken'
-      };
-    }
-
-    // Create new user
-    const newUser: User = {
-      id: this.generateId(),
-      username: userData.username,
-      email: userData.email,
-      name: userData.name,
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-      preferences: {
-        theme: 'dark',
-        language: 'en',
-        notifications: true
+      
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('❌ Signin timeout - request took too long');
+        return {
+          success: false,
+          message: 'Sign in timed out. Please try again.'
+        };
       }
-    };
-
-    // Save user data locally
-    users.push(newUser);
-    localStorage.setItem('videoSummarizer_allUsers', JSON.stringify(users));
-    
-    // Save password separately (in real app, this should be hashed)
-    const passwords = JSON.parse(localStorage.getItem('videoSummarizer_passwords') || '{}');
-    passwords[newUser.id] = userData.password; // In production, hash this!
-    localStorage.setItem('videoSummarizer_passwords', JSON.stringify(passwords));
-
-    // Generate token and save current user
-    const token = this.generateToken();
-    this.saveUserToLocal(newUser, token);
-
-    return {
-      success: true,
-      user: newUser,
-      token: token,
-      message: 'Account created successfully!'
-    };
-  }
-
-  // Local storage sign in
-  private signInLocal(credentials: SignInData): AuthResponse {
-    const users = this.getAllUsersFromLocal();
-    const passwords = JSON.parse(localStorage.getItem('videoSummarizer_passwords') || '{}');
-    
-    // Find user by email
-    const user = users.find(u => u.email === credentials.email);
-    if (!user) {
+      
+      console.error('❌ Backend signin error:', error);
       return {
         success: false,
-        message: 'Email not found. Please check your email or sign up.'
+        message: 'Backend connection failed. Please check if the server is running.'
       };
     }
-
-    // Check password
-    if (passwords[user.id] !== credentials.password) {
-      return {
-        success: false,
-        message: 'Incorrect password. Please try again.'
-      };
-    }
-
-    // Update last login
-    user.lastLoginAt = new Date().toISOString();
-    const updatedUsers = users.map(u => u.id === user.id ? user : u);
-    localStorage.setItem('videoSummarizer_allUsers', JSON.stringify(updatedUsers));
-
-    // Generate token and save current user
-    const token = this.generateToken();
-    this.saveUserToLocal(user, token);
-
-    return {
-      success: true,
-      user: user,
-      token: token,
-      message: 'Signed in successfully!'
-    };
   }
+
+  // 🗑️ REMOVED: Local storage methods (backend-only now)
 
   // Get current user
   getCurrentUser(): User | null {
@@ -243,85 +156,35 @@ class AuthService {
     localStorage.removeItem(this.tokenKey);
   }
 
-  // Update user profile
-  async updateProfile(userData: Partial<User>): Promise<AuthResponse> {
-    const currentUser = this.getCurrentUser();
-    if (!currentUser) {
-      return { success: false, message: 'No user logged in' };
-    }
+  // 🗑️ REMOVED: Profile update method (implement backend-only version if needed)
 
-    try {
-      // Try backend first
-      const token = this.getToken();
-      const response = await fetch(`${this.baseUrl}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        this.saveUserToLocal(result.user, token!);
-        return result;
-      }
-    } catch (error) {
-      console.log('Backend not available, updating locally');
-    }
-
-    // Fallback to local update
-    const updatedUser = { ...currentUser, ...userData };
-    const users = this.getAllUsersFromLocal();
-    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUser : u);
-    localStorage.setItem('videoSummarizer_allUsers', JSON.stringify(updatedUsers));
-    this.saveUserToLocal(updatedUser, this.getToken()!);
-
-    return {
-      success: true,
-      user: updatedUser,
-      message: 'Profile updated successfully!'
-    };
-  }
-
-  // Check if email exists (public method)
-  checkEmailExists(email: string): boolean {
-    const users = this.getAllUsersFromLocal();
-    return users.some(u => u.email === email);
-  }
-
-  // Check if username exists (public method)  
-  checkUsernameExists(username: string): boolean {
-    const users = this.getAllUsersFromLocal();
-    return users.some(u => u.username === username);
-  }
+  // 🗑️ REMOVED: Email/username checking (backend handles validation now)
 
   // Helper methods
   private saveUserToLocal(user: User, token: string): void {
+    console.log('💾 Saving user to localStorage:', {
+      user: user,
+      token: token,
+      storageKey: this.storageKey,
+      tokenKey: this.tokenKey
+    });
+    
     localStorage.setItem(this.storageKey, JSON.stringify(user));
     localStorage.setItem(this.tokenKey, token);
+    
+    // Verify it was saved
+    const savedUser = localStorage.getItem(this.storageKey);
+    const savedToken = localStorage.getItem(this.tokenKey);
+    
+    console.log('✅ Verification - Saved to localStorage:', {
+      userSaved: !!savedUser,
+      tokenSaved: !!savedToken,
+      savedUser: savedUser,
+      savedToken: savedToken
+    });
   }
 
-  private getAllUsersFromLocal(): User[] {
-    return JSON.parse(localStorage.getItem('videoSummarizer_allUsers') || '[]');
-  }
-
-  private generateId(): string {
-    return 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  }
-
-  private generateToken(): string {
-    return 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 16);
-  }
-
-  // Get user statistics
-  getUserStats(): { totalUsers: number; currentUser: User | null } {
-    return {
-      totalUsers: this.getAllUsersFromLocal().length,
-      currentUser: this.getCurrentUser()
-    };
-  }
+  // 🗑️ REMOVED: localStorage utility methods (backend-only now)
 
   // Export user data
   exportUserData(): string {
@@ -333,6 +196,27 @@ class AuthService {
       exportDate: new Date().toISOString(),
       version: '1.0'
     }, null, 2);
+  }
+
+  // 🆕 Clear all old localStorage data
+  clearAllData(): void {
+    console.log('🧹 Clearing all old localStorage data...');
+    
+    // Remove all videoSummarizer related data
+    const keysToRemove = [
+      'videoSummarizer_token',
+      'videoSummarizer_user', 
+      'videoSummarizer_extensionAuth',
+      'videoSummarizer_allUsers',
+      'videoSummarizer_passwords'
+    ];
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      console.log(`🗑️ Removed: ${key}`);
+    });
+    
+    console.log('✅ All old data cleared. Ready for backend-only authentication.');
   }
 }
 

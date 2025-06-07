@@ -154,20 +154,10 @@ function SignIn({ onSignIn }: SignInProps) {
     }
 
     if (isSignUp) {
-      // For sign up, check if email already exists
-      if (authService.checkEmailExists(formData.email)) {
-        setError('Email already registered. Please use a different email or sign in.');
-        setIsLoading(false);
-        return;
-      }
+      // For sign up, continue to username (backend will check for duplicates)
       transitionToStep('username');
     } else {
-      // For sign in, check if email exists in the system
-      if (!authService.checkEmailExists(formData.email)) {
-        setError('Email not found. Please check your email or sign up.');
-        setIsLoading(false);
-        return;
-      }
+      // For sign in, continue to password (backend will validate email existence)
       transitionToStep('password');
     }
     

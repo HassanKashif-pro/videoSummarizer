@@ -264,16 +264,19 @@ export const getVideoNotes = async (req: Request, res: Response) => {
     if (contentType) filter.contentType = contentType;
 
     // Build projection (exclude large content for list views)
-    const projection = includeContent ? {} : { 
+    const projection = includeContent ? undefined : { 
       content: 0 // Exclude content field for faster loading
-    };
+    } as const;
 
     // Calculate skip for pagination
     const skip = (page - 1) * limit;
 
     // Optimized query with lean() for better performance
-    const notesQuery = VideoNote
-      .find(filter, projection)
+    const notesQuery = projection 
+      ? VideoNote.find(filter, projection)
+      : VideoNote.find(filter);
+    
+    notesQuery
       .sort({ isPinned: -1, createdAt: -1 }) // Pinned first, then newest
       .skip(skip)
       .limit(limit)

@@ -10,6 +10,7 @@ const path = require("path");
 const https = require("https");
 const HttpsProxyAgent = require("https-proxy-agent");
 const { connectDB } = require("./services/database");
+const connectMongoDB = require("./config/database");
 const {
   saveVideoNote,
   getVideoNotes,
@@ -195,8 +196,9 @@ try {
   process.exit(1);
 }
 
-// Initialize database connection
+// Initialize database connections
 connectDB().catch(console.error);
+connectMongoDB().catch(console.error);
 
 // Add environment variable validation
 console.log("🔍 Checking environment variables...");
@@ -1520,6 +1522,10 @@ app.post("/api/rotate-proxy", (req: any, res: any) => {
   });
 });
 
+// Authentication routes
+const authRoutes = require('./routes/authRoutes.js');
+app.use('/api/auth', authRoutes);
+
 // Routes for video notes
 app.post("/api/videos/save", saveVideoNote);
 app.get("/api/videos/notes", getVideoNotes);
@@ -1603,39 +1609,5 @@ app.get("/test/youtube/:videoId", async (req: any, res: any) => {
   }
 });
 
-// Authentication status endpoint for Chrome extension
-app.get("/api/auth/status", (req: any, res: any) => {
-  // Since we're using localStorage-based authentication, we'll check for the presence of
-  // the authorization header or allow the extension to pass authentication status
-  const authHeader = req.headers.authorization;
-  const userAgent = req.headers['user-agent'];
-  
-  // For Chrome extension requests, we'll return a way for them to validate their localStorage
-  if (userAgent && userAgent.includes('Chrome')) {
-    // The extension will need to include the token and user data in headers for validation
-    const token = req.headers['x-auth-token'];
-    const userData = req.headers['x-user-data'];
-    
-    if (token && userData) {
-      try {
-        const user = JSON.parse(decodeURIComponent(userData as string));
-        return res.json({
-          authenticated: true,
-          user: user,
-          message: "User is authenticated"
-        });
-      } catch (error) {
-        return res.json({
-          authenticated: false,
-          message: "Invalid user data"
-        });
-      }
-    }
-  }
-  
-  // Default response for non-authenticated requests
-  res.json({
-    authenticated: false,
-    message: "User not authenticated"
-  });
-});
+// Legacy authentication status endpoint (now handled by /api/auth/verify)
+// This is kept for backward compatibility but should use the new /api/auth/verify endpoint
