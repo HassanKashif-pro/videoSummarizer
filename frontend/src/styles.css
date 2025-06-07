@@ -554,6 +554,48 @@ button:focus-visible {
   border-radius: 8px;
   border: 1px solid var(--yt-border);
   box-shadow: 0 2px 6px var(--yt-shadow);
+  max-width: 115vh;
+  width: 100%;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top left;
+  box-sizing: border-box;
+}
+
+/* Hover tooltip for full main video title */
+.video-title:hover {
+  overflow: visible;
+  white-space: normal;
+  word-wrap: break-word;
+  z-index: 1000;
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  line-height: 1.4;
+  max-height: none;
+  animation: titleExpand 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Smooth animation for title expansion */
+@keyframes titleExpand {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.01) translateY(-1px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.02) translateY(-2px);
+    opacity: 1;
+  }
 }
 
 .video-container {
