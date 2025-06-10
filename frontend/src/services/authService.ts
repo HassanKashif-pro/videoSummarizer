@@ -1,3 +1,5 @@
+import { oauthService, OAuthResult } from './oauthService';
+
 export interface User {
   id: string;
   username: string;
@@ -217,6 +219,50 @@ class AuthService {
     });
     
     console.log('✅ All old data cleared. Ready for backend-only authentication.');
+  }
+
+  /**
+   * Sign in with Google OAuth
+   */
+  async signInWithGoogle(): Promise<{ success: boolean; message?: string; user?: any; error?: string }> {
+    try {
+      console.log('🚀 Starting Google OAuth sign-in...');
+      
+      const oauthResult: OAuthResult = await oauthService.signInWithGoogle();
+      
+      if (!oauthResult.success) {
+        return {
+          success: false,
+          error: oauthResult.error || 'OAuth authentication failed'
+        };
+      }
+
+      // Store user data in localStorage
+      if (oauthResult.user) {
+        localStorage.setItem('videoSummarizer_user', JSON.stringify(oauthResult.user));
+        localStorage.setItem('videoSummarizer_token', oauthResult.accessToken || 'oauth_token');
+        
+        console.log('✅ Google OAuth successful:', oauthResult.user);
+        
+        return {
+          success: true,
+          message: 'Successfully signed in with Google',
+          user: oauthResult.user
+        };
+      }
+
+      return {
+        success: false,
+        error: 'No user data received from Google'
+      };
+
+    } catch (error) {
+      console.error('❌ Google OAuth error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Google sign-in failed'
+      };
+    }
   }
 }
 

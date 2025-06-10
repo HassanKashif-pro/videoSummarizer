@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import MainApp from "./components/MainApp.tsx";
 import SignIn from "./components/SignIn.tsx";
 import UserDashboard from "./components/UserDashboard";
+import OAuthCallback from "./pages/OAuthCallback";
 import "./styles.css";
 import { authService } from './services/authService';
 
@@ -10,6 +11,36 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Function to store auth state for Chrome extension
+  const storeAuthForExtension = (authenticated: boolean, user: any) => {
+    try {
+      // Store in localStorage with a special key the extension can check
+      const authData = {
+        authenticated,
+        user: user ? {
+          id: user.id,
+          name: user.name || user.username,
+          email: user.email
+        } : null,
+        timestamp: Date.now()
+      };
+      
+      localStorage.setItem('videoSummarizer_extensionAuth', JSON.stringify(authData));
+      console.log('💾 Stored auth data for extension:', authData);
+      
+      // Also try to use Chrome extension storage if available
+      if (typeof window !== 'undefined' && (window as any).chrome && (window as any).chrome.storage) {
+        (window as any).chrome.storage.local.set({
+          'videoSummarizer_auth': authData
+        }, () => {
+          console.log('💾 Stored auth data in Chrome storage');
+        });
+      }
+    } catch (error) {
+      console.log('⚠️ Could not store auth data for extension:', error);
+    }
+  };
 
   useEffect(() => {
     // Check if user is already authenticated on app start
@@ -77,36 +108,6 @@ function App() {
       setIsLoading(false);
     };
 
-    // Function to store auth state for Chrome extension
-    const storeAuthForExtension = (authenticated: boolean, user: any) => {
-      try {
-        // Store in localStorage with a special key the extension can check
-        const authData = {
-          authenticated,
-          user: user ? {
-            id: user.id,
-            name: user.name || user.username,
-            email: user.email
-          } : null,
-          timestamp: Date.now()
-        };
-        
-        localStorage.setItem('videoSummarizer_extensionAuth', JSON.stringify(authData));
-        console.log('💾 Stored auth data for extension:', authData);
-        
-        // Also try to use Chrome extension storage if available
-        if (typeof window !== 'undefined' && (window as any).chrome && (window as any).chrome.storage) {
-          (window as any).chrome.storage.local.set({
-            'videoSummarizer_auth': authData
-          }, () => {
-            console.log('💾 Stored auth data in Chrome storage');
-          });
-        }
-      } catch (error) {
-        console.log('⚠️ Could not store auth data for extension:', error);
-      }
-    };
-
     checkAuth();
 
     // Listen for authentication requests from Chrome extension
@@ -150,13 +151,23 @@ function App() {
           };
           
           console.log('📤 Sending auth response to Chrome extension:', response);
-          window.postMessage(response, '*');
+          // Send response to Chrome extension with proper origin validation
+          if (event.origin === window.location.origin) {
+            window.postMessage(response, event.origin);
+          } else {
+            console.warn('⚠️ Ignoring message from unauthorized origin:', event.origin);
+          }
         }
       }
     };
 
-    window.addEventListener('message', handleMessage);
-    
+    // Add event listener with proper error handling
+    try {
+      window.addEventListener('message', handleMessage);
+      console.log('✅ Message event listener added successfully');
+    } catch (error) {
+      console.error('❌ Failed to add message event listener:', error);
+    }
     return () => {
       window.removeEventListener('message', handleMessage);
     };
@@ -165,6 +176,43 @@ function App() {
   const handleSignIn = async (email: string, password: string) => {
     try {
       console.log('🔐 Starting sign-in process for:', email);
+      
+      // Check if this is an OAuth token (skip regular auth for OAuth users)
+      if (password === 'oauth_token') {
+        console.log('🔑 OAuth user detected, using stored OAuth data');
+        
+        // For OAuth users, the data should already be in localStorage
+        const storedUser = localStorage.getItem('videoSummarizer_user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          setUser({
+            name: userData.name || userData.username,
+            email: userData.email
+          });
+          setIsAuthenticated(true);
+          console.log('✅ OAuth user signed in successfully:', userData);
+          
+          // Store auth data for Chrome extension
+          storeAuthForExtension(true, userData);
+          
+          // Notify Chrome extension about authentication success
+          window.postMessage({
+            type: 'AUTH_SUCCESS',
+            user: {
+              name: userData.name || userData.username,
+              email: userData.email
+            },
+            source: 'main_app'
+          }, '*');
+          
+          return;
+        } else {
+          console.error('❌ OAuth data not found in localStorage');
+          return;
+        }
+      }
+      
+      // Regular email/password authentication
       const result = await authService.signIn({ email, password });
       
       console.log('📋 Sign-in result:', result);
@@ -241,6 +289,10 @@ function App() {
             <Navigate to="/" replace /> : 
             <SignIn onSignIn={handleSignIn} />
           } 
+        />
+        <Route 
+          path="/callback" 
+          element={<OAuthCallback />} 
         />
         <Route 
           path="/dashboard" 

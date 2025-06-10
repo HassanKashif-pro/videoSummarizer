@@ -256,24 +256,29 @@ function SignIn({ onSignIn }: SignInProps) {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setError('');
+    
     try {
-      // Simulate Google sign in with demo data
-      const googleUser: SignUpData = {
-        username: 'googleuser_' + Date.now(),
-        email: 'user@gmail.com',
-        password: 'google-auth-token',
-        name: 'Google User'
-      };
-
-      const result = await authService.signUp(googleUser);
-      if (result.success) {
-        setSuccess('Signed in with Google successfully!');
+      console.log('🚀 Initiating Google OAuth...');
+      const result = await authService.signInWithGoogle();
+      
+      if (result.success && result.user) {
+        // OAuth handles both sign-in and sign-up automatically
+        const message = result.message || 'Successfully authenticated with Google!';
+        setSuccess(message);
+        
+        // Log user info for debugging
+        console.log('✅ OAuth User Data:', result.user);
+        
         setTimeout(() => {
-          onSignIn(googleUser.email, googleUser.password);
+          onSignIn(result.user.email, 'oauth_token');
         }, 1000);
+      } else {
+        setError(result.error || 'Google authentication failed. Please try again.');
       }
     } catch (error) {
-      setError('Google sign in failed');
+      console.error('Google OAuth error:', error);
+      setError('Failed to authenticate with Google. Please ensure popups are enabled.');
     } finally {
       setIsLoading(false);
     }

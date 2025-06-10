@@ -1,5 +1,27 @@
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Session = require('../models/Session');
+const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
+
+// Rate limiting for auth operations
+const authRateLimit = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_ATTEMPTS = 5;
+
+const checkRateLimit = (identifier) => {
+  const now = Date.now();
+  const attempts = authRateLimit.get(identifier) || [];
+  const recentAttempts = attempts.filter(time => now - time < RATE_LIMIT_WINDOW);
+  
+  if (recentAttempts.length >= MAX_ATTEMPTS) {
+    return false;
+  }
+  
+  recentAttempts.push(now);
+  authRateLimit.set(identifier, recentAttempts);
+  return true;
+};
 
 // 🔧 Utility functions
 const generateSessionId = () => {
@@ -293,10 +315,190 @@ const getNamespaceInfo = async (req, res) => {
   }
 };
 
+// OAuth token exchange
+const exchangeOAuthToken = async (req, res) => {
+  try {
+    const { code, clientId, redirectUri } = req.body;
+
+    if (!code || !clientId || !redirectUri) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required OAuth parameters'
+      });
+    }
+
+    // Check rate limiting
+    const clientIp = req.ip || req.connection.remoteAddress;
+    if (!checkRateLimit(`oauth_${clientIp}`)) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many OAuth attempts. Please try again later.'
+      });
+    }
+
+    console.log('🔄 Exchanging OAuth code for token...');
+
+    // Exchange authorization code for access token with Google
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: clientId,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET, // You'll need to add this to your .env
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    if (!access_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to obtain access token'
+      });
+    }
+
+    // Get user info from Google
+    const userResponse = await axios.get(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${access_token}`);
+    const googleUser = userResponse.data;
+
+    console.log('👤 Google user info:', googleUser);
+
+    // Check if user exists in our database
+    let user = await User.findOne({ email: googleUser.email });
+    let isNewUser = false;
+
+    if (!user) {
+      // Create new user with shorter username
+      // Take last 8 digits of Google ID + random 4 digits to ensure uniqueness within 30 char limit
+      const googleIdSuffix = googleUser.id.slice(-8);
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const username = `g_${googleIdSuffix}_${randomSuffix}`;
+      
+      user = new User({
+        username,
+        email: googleUser.email,
+        name: googleUser.name || googleUser.email,
+        password: 'oauth_google', // OAuth users don't have passwords - will be hashed automatically
+        authProvider: 'google',
+        googleId: googleUser.id,
+        profilePicture: googleUser.picture,
+        isActive: true
+      });
+
+      await user.save();
+      isNewUser = true;
+      console.log('✅ New OAuth user created:', user.email);
+    } else {
+      // Update existing user with Google info if not already set
+      if (!user.googleId) {
+        user.googleId = googleUser.id;
+        user.authProvider = 'google';
+        if (googleUser.picture && !user.profilePicture) {
+          user.profilePicture = googleUser.picture;
+        }
+        await user.save();
+      }
+      console.log('✅ Existing user signed in via OAuth:', user.email);
+    }
+
+    // Create session
+    const sessionId = uuidv4();
+    const session = new Session({
+      sessionId,
+      userId: user._id.toString(), // Use MongoDB _id
+      email: user.email,
+      username: user.username,
+      isActive: true,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    });
+
+    await session.save();
+
+    // Return success with user data and appropriate message
+    const message = isNewUser 
+      ? 'Account created successfully with Google!' 
+      : 'Welcome back! Signed in with Google.';
+    
+    res.json({
+      success: true,
+      message: message,
+      accessToken: access_token,
+      user: {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        profilePicture: user.profilePicture
+      },
+      sessionId,
+      isNewUser: isNewUser
+    });
+
+  } catch (error) {
+    console.error('❌ OAuth token exchange error:', error);
+    
+    if (error.response) {
+      console.error('Google API Error:', error.response.data);
+    }
+
+    // More specific error messages
+    let errorMessage = 'OAuth authentication failed';
+    if (error.message.includes('validation')) {
+      errorMessage = 'User data validation failed';
+    } else if (error.message.includes('duplicate')) {
+      errorMessage = 'User already exists with different provider';
+    } else if (error.response?.status === 400) {
+      errorMessage = 'Invalid authorization code';
+    }
+
+    res.status(500).json({
+      success: false,
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+// Add missing methods
+const verifyAuth = async (req, res) => {
+  res.json({
+    success: true,
+    authenticated: true,
+    message: 'Authentication verified'
+  });
+};
+
+const healthCheck = async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Auth service is healthy',
+    timestamp: new Date().toISOString()
+  });
+};
+
+const checkSession = async (req, res) => {
+  try {
+    const activeSessions = await Session.countDocuments();
+    res.json({
+      success: true,
+      authenticated: activeSessions > 0,
+      message: `Found ${activeSessions} active sessions`
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Session check failed'
+    });
+  }
+};
+
 module.exports = {
   signUp,
   signIn,
   signOut,
+  verifyAuth,
+  healthCheck,
+  checkSession,
   checkUserNamespace,
-  getNamespaceInfo
+  getNamespaceInfo,
+  exchangeOAuthToken
 }; 

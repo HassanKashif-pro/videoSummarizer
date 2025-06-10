@@ -33,6 +33,18 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
+  googleId: {
+    type: String,
+    sparse: true // Allows null values but ensures uniqueness when present
+  },
+  profilePicture: {
+    type: String
+  },
   notes: [{
     videoId: String,
     videoTitle: String,
